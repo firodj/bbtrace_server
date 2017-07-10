@@ -30,8 +30,13 @@ module.exports = {
         })
       },
       {
-          test: /\.(eot|svg|ttf|woff|woff2)$/,
-          loader: 'file-loader?name=[name].[ext]&outputPath=/fonts/'
+        test: /\.css$/,
+        loader: 'style-loader!css-loader?modules',
+        include: /flexboxgrid/
+      },
+      {
+        test: /\.(eot|svg|ttf|woff|woff2)$/,
+        loader: 'file-loader?name=[name].[ext]&outputPath=/fonts/'
       }
     ]
   },
