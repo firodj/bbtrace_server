@@ -9,6 +9,7 @@ class App extends React.Component {
 }
 
 // Sytylesheets
+require('../../node_modules/roboto-fontface/css/roboto/sass/roboto-fontface-regular.scss');
 require('../scss/index.scss');
 
 render(<App/>, document.getElementById('app'));
