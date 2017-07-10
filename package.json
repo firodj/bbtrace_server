@@ -5,8 +5,10 @@
   "author": "firodj",
   "license": "MIT",
   "dependencies": {
+    "material-ui": "^0.18.6",
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
+    "react-tap-event-plugin": "^2.0.1",
     "roboto-fontface": "^0.7.1"
   },
   "devDependencies": {
