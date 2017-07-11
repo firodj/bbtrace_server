@@ -3242,10 +3242,6 @@ ripemd160@^2.0.0, ripemd160@^2.0.1:
     hash-base "^2.0.0"
     inherits "^2.0.1"
 
-roboto-fontface@^0.7.1:
-  version "0.7.1"
-  resolved "https://registry.yarnpkg.com/roboto-fontface/-/roboto-fontface-0.7.1.tgz#94f97b7ee999b11dd0711092a26425826cb282f7"
-
 safe-buffer@^5.0.1, safe-buffer@^5.1.0, safe-buffer@~5.1.0, safe-buffer@~5.1.1:
   version "5.1.1"
   resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.1.1.tgz#893312af69b2123def71f57889001671eeb2c853"
@@ -3573,6 +3569,10 @@ tunnel-agent@^0.6.0:
 tweetnacl@^0.14.3, tweetnacl@~0.14.0:
   version "0.14.5"
   resolved "https://registry.yarnpkg.com/tweetnacl/-/tweetnacl-0.14.5.tgz#5ae68177f192d4456269d108afa93ff8743f4f64"
+
+typeface-roboto@^0.0.31:
+  version "0.0.31"
+  resolved "https://registry.yarnpkg.com/typeface-roboto/-/typeface-roboto-0.0.31.tgz#6bb65f4cf68c6bf68a6739417d98b2dfecb7b263"
 
 ua-parser-js@^0.7.9:
   version "0.7.13"

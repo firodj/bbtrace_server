@@ -9,8 +9,10 @@ import injectTapEventPlugin from 'react-tap-event-plugin';
 // http://stackoverflow.com/a/34015469/988941
 injectTapEventPlugin();
 
+// Fonts
+import 'typeface-roboto';
+
 // Sytylesheets
-require('../../node_modules/roboto-fontface/css/roboto/sass/roboto-fontface-regular.scss');
 require('../scss/index.scss');
 
 // Components
