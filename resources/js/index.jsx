@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from 'react-dom';
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
-import MyAwesomeReactComponent from './MyAwesomeReactComponent';
+import Root from './Root';
 
 import injectTapEventPlugin from 'react-tap-event-plugin';
 
@@ -18,7 +18,7 @@ require('../scss/index.scss');
 // Components
 const App = () => (
   <MuiThemeProvider>
-    <MyAwesomeReactComponent />
+    <Root />
   </MuiThemeProvider>
 );
 
