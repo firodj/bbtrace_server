@@ -45,17 +45,38 @@ class PeParser implements Serializable
         $this->name = &$this->data->name;
     }
 
-    protected function getHeaderValue($name)
+    public function getHeaderValue($name)
     {
         $header = $this->headers[$name];
 
-        if ($header[2] == 'h*') return '<BINARY>';
+        if ($header[2] == 'h*') return [
+            $header[0], $header[1]
+        ];
 
         fseek($this->fp, $header[0], SEEK_SET);
         $data = fread($this->fp, $header[1]);
-        if ($header[2] == 'x*') return iconv('UTF-16LE', 'UTF-8', $data);
+        if ($header[2] == 'u*') return iconv('UTF-16LE', 'UTF-8', $data);
         $s = unpack($header[2], $data);
         return $s[1];
+    }
+
+    public function getBinaryByRva($rva, $sz)
+    {
+        $s = $this->findSection($rva);
+        if ($s) {
+            $raw = $s->raw + $s->ofs;
+
+            fseek($this->fp, $raw, SEEK_SET);
+            $data = fread($this->fp, $sz);
+
+            return $data;
+        }
+        return null;
+    }
+
+    public function getBinaryByPos($pos, $size)
+    {
+        //
     }
 
     public function is32() {
@@ -194,6 +215,11 @@ class PeParser implements Serializable
         $this->parseImports();
         $this->parseExports();
         $this->parseResources();
+    }
+
+    public function va2rva($va)
+    {
+        return $va - $this->getHeaderValue('opt.ImageBase');
     }
 
     public function findSection($rva)
@@ -415,7 +441,7 @@ class PeParser implements Serializable
                     $this->headers[sprintf('resource%s.entry@%d.NameLength', $p, $y)]   = [$name_ofs, 2, 'v'];
                     $name_len = $this->getHeaderValue(sprintf('resource%s.entry@%d.NameLength', $p, $y));
 
-                    $this->headers[sprintf('resource%s.entry@%d.Name', $p, $y)]   = [$name_ofs+2, $name_len*2, 'x*']; // UTF-16LE
+                    $this->headers[sprintf('resource%s.entry@%d.Name', $p, $y)]   = [$name_ofs+2, $name_len*2, 'u*']; // UTF-16LE
                 }
 
                 $entry_ofs = $this->getHeaderValue(sprintf('resource%s.entry@%d.Offset', $p, $y));
@@ -462,7 +488,8 @@ class PeParser implements Serializable
 
         foreach($this->headers as $name=>$header) {
             $value = $this->getHeaderValue($name);
-            $output .= sprintf("0x%04x %s %s\n", $header[0], $name, is_string($value) ? $value : '0x'.dechex($value));
+            $output .= sprintf("0x%04x %s %s\n", $header[0], $name, 
+                is_array($value) ? '<BINARY>' : (is_string($value) ? $value : '0x'.dechex($value)));
         }
 
         return $output;

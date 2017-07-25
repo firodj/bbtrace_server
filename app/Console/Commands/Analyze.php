@@ -16,7 +16,7 @@ class Analyze extends Command
         $anal->open(base_path('../logs/psxfin.trace_log.dump'));
         $anal->open(base_path('../logs/psxfin.pe_parser.dump'));
 
-        $anal->experiment();
+        $anal->experiment2();
     }
 }
 
