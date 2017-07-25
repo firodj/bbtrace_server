@@ -183,10 +183,6 @@ class TraceLog implements Serializable
         self::parseJson($fpath, function($o) {
             $this->saveInfo($o);
         });
-
-        fprintf(STDERR, "Blocks: %d\nSymbols: %d\n", count($this->blocks), count($this->symbols));
-        fprintf(STDERR, "Modules: %d\nImports: %d\n", count($this->modules), count($this->imports));
-        fprintf(STDERR, "Exceptions: %d\n", count($this->exceptions));
     }
 
     public function parseFunc()
@@ -195,7 +191,6 @@ class TraceLog implements Serializable
         self::parseJson($fpath, function($o) {
             $this->saveInfo($o);
         });
-        fprintf(STDERR, "Functions: %d\n", count($this->functions));
     }
 
     public function serialize(): string
@@ -214,5 +209,19 @@ class TraceLog implements Serializable
         $this->exceptions = &$this->data->exceptions;
         $this->functions = &$this->data->functions;
         $this->name = &$this->data->name;
+    }
+
+    public function __toString()
+    {
+        $output = sprintf("Name: %s\n", $this->name);
+        $output.= sprintf("Blocks: %d\n", count($this->blocks));
+        $output.= sprintf("Symbols: %d\n", count($this->symbols));
+        $output.= sprintf("Modules: %d\n", count($this->modules));
+        $output.= sprintf("Imports: %d\n", count($this->imports));
+        $output.= sprintf("Exceptions: %d\n", count($this->exceptions));
+        $output.= sprintf("Functions: %d\n", count($this->functions));
+        $output.= sprintf("Count: %d\n", $this->getLogCount());
+
+        return $output;
     }
 }
