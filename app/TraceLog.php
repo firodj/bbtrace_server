@@ -102,22 +102,32 @@ class TraceLog implements Serializable
 
     protected function saveInfo($o)
     {
+        foreach(['block_entry', 'block_end', 'symbol_entry',
+            'module_start_ref', 'module_start', 'module_end', 'module_entry',
+            'exception_code', 'exception_address', 'fault_address',
+            'function_entry', 'function_end',
+        ] as $k) {
+            if (isset($o[$k]) && is_string($o[$k]) && strpos($o[$k], '0x') === 0) {
+                $o[$k] = hexdec($o[$k]);
+            }
+        }
+
         if (isset($o['module_start'])) {
-            $this->modules[ hexdec($o['module_start']) ] = $o;
+            $this->modules[ $o['module_start'] ] = $o;
         } elseif (isset($o['block_entry'])) {
-            $this->blocks[ hexdec($o['block_entry']) ] = $o;
+            $this->blocks[ $o['block_entry'] ] = $o;
         }
         elseif (isset($o['symbol_entry'])) {
-            $this->symbols[ hexdec($o['symbol_entry']) ] = $o;
+            $this->symbols[ $o['symbol_entry'] ] = $o;
         }
         elseif (isset($o['exception_code'])) {
-            $this->exceptions[ hexdec($o['exception_address']) ] = $o;
+            $this->exceptions[ $o['exception_address'] ] = $o;
         }
         elseif (isset($o['import_module_name'])) {
-            $this->imports[$o['symbol_name']] = $o;
+            $this->imports[ $o['symbol_name'] ] = $o;
         }
         elseif (isset($o['function_entry'])) {
-            $this->functions[ hexdec($o['function_entry']) ] = $o;
+            $this->functions[ $o['function_entry'] ] = $o;
         }
         else {
             fprintf(STDERR, "Bad Info:%s\n", json_encode($o));

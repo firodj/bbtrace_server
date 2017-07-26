@@ -2,12 +2,37 @@
 
 namespace App;
 
-class BbAnalyzer
+use Exception;
+use Serializable;
+
+class BbAnalyzer implements Serializable
 {
-    public function __construct()
+    public $fname;
+
+    private $data;
+
+    public function __construct($fname)
+    {
+        $this->fname = $fname;
+        $this->data = (object) [
+            'exgress' => [],
+            'ingress' => [],
+            'fname_pe_parser' => null,
+            'fname_trace_log' => null,
+        ];
+
+        $this->initialize();
+    }
+
+    public function initialize()
     {
         $this->capstone = cs_open(CS_ARCH_X86, CS_MODE_32);
         cs_option($this->capstone, CS_OPT_DETAIL, CS_OPT_ON);
+
+        if ($this->data->fname_pe_parser)
+            $this->open($this->data->fname_pe_parser);
+        if ($this->data->fname_trace_log)
+            $this->open($this->data->fname_trace_log);
     }
 
     public static function string_hex($bytes)
@@ -145,18 +170,153 @@ class BbAnalyzer
 
     }
 
+    public function getTraceLog()
+    {
+        return $this->trace_log;
+    }
+
+    public function getPeParser()
+    {
+        return $this->pe_parser;
+    }
+
     public function open($fname)
     {
         $data = unserialize(file_get_contents($fname));
         if ($data instanceof PeParser) {
             $this->pe_parser = $data;
             $this->pe_parser->open();
+            $this->data->fname_pe_parser = $fname;
             return $data;
-        }
-        if ($data instanceof TraceLog) {
+        } else if ($data instanceof TraceLog) {
             $this->trace_log = $data;
+            $this->data->fname_trace_log = $fname;
             return $data;
         }
+    }
+
+    public function save($data)
+    {
+        if ($data instanceof PeParser) {
+            file_put_contents($this->data->fname_pe_parser, serialize($data));
+        } else if ($data instanceof TraceLog) {
+            file_put_contents($this->data->fname_trace_log, serialize($data));
+        }
+    }
+
+    public function buildRanges()
+    {
+        if (!isset($this->headers)) {
+            $this->headers = [];
+            foreach($this->pe_parser->headers as $name => $header) {
+                if (!array_key_exists($header[0], $this->headers)) {
+                    $this->headers[ $header[0] ] = [];
+                }
+                $this->headers[ $header[0] ][$name] = $header;
+            }
+
+            $this->header_ranges = array_keys($this->headers);
+            sort($this->header_ranges, SORT_NUMERIC);
+        }
+
+        if (!isset($this->function_ranges)) {
+            $this->function_ranges = array_keys($this->trace_log->functions);
+            sort($this->function_ranges, SORT_NUMERIC);
+        }
+    }
+
+    public function doAssignFunction()
+    {
+        $this->buildRanges();
+
+        $dirty = false;
+
+        foreach($this->trace_log->blocks as $block_id => &$block) {
+            if (isset($block['function_id'])) continue;
+
+            $function_id = NearestValue::array_numeric_sorted_nearest($this->function_ranges,
+                $block_id,
+                NearestValue::ARRAY_NEAREST_LOWER);
+
+            $function = $this->trace_log->functions[$function_id];
+
+            if ($block_id < $function['function_end']) {
+                $dirty = true;
+                $block['function_id'] = $function_id;
+            } else {
+                $befores = array_keys( $this->data->ingress[$block_id] );
+
+                foreach($befores as $before_id) {
+                    if (isset($this->trace_log->blocks[$before_id])) {
+                        $before = $this->trace_log->blocks[$before_id];
+
+                        if (in_array($before['jump']['mnemonic'], ['jmp', 'jge'])) {
+                            if (isset($before['function_id'])) {
+                                $dirty = true;
+                                $block['function_id'] = $before['function_id'];
+                                break;
+                            }
+                        }
+                        if ($before['jump']['mnemonic'] == 'call') {
+                            $block['function_id'] = $block_id;
+                            if (!array_key_exists($block_id, $this->trace_log->functions)) {
+                                $this->trace_log->functions[$block_id] = [
+                                    'function_entry' => $block_id,
+                                    'function_end' => $block['block_entry'],
+                                    'function_name' => 'proc_'.dechex($block_id),
+                                ];
+
+                                dump($this->trace_log->functions[$block_id]);
+                            }
+                            $dirty = true;
+                        }
+                    } else if (isset($this->trace_log->symbols[$before_id])) {
+                        $before = $this->trace_log->symbols[$before_id];
+                    }
+                }
+            }
+        }
+
+        return $dirty;
+    }
+
+    protected function doAssignJump()
+    {
+        $img_base = $this->pe_parser->getHeaderValue('opt.ImageBase');
+
+        $dirty = false;
+
+        foreach($this->trace_log->blocks as $block_id => &$block) {
+            if (isset($block['jump'])) continue;
+
+            $ref = $block['module_start_ref'];
+
+            if ($ref != $img_base) continue;
+
+            $start = $block['block_entry'];
+            $end = $block['block_end'];
+            $rva = $start - $ref;
+            $sz = $end - $start;
+
+            $data = $this->pe_parser->getBinaryByRva($rva, $sz);
+            $insn = cs_disasm($this->capstone, $data, $start);
+
+            $ins = end($insn);
+
+            $block['jump'] = [
+                'address' => $ins->address,
+                'mnemonic' => $ins->mnemonic,
+                'code' => pack('C*', ...$ins->bytes)
+            ];
+            $dirty = true;
+
+            $stop = $ins->address + count($ins->bytes);
+            if ($stop != $end) {
+                throw new Exception('Wrong disassmble!');
+            }
+        }
+
+        return $dirty;
     }
 
     protected function disasm($block_id)
@@ -166,37 +326,35 @@ class BbAnalyzer
         if (!isset($this->trace_log->blocks[$block_id])) return;
 
         $block = $this->trace_log->blocks[$block_id];
-        $ref = hexdec($block['module_start_ref']);
+        $ref = $block['module_start_ref'];
 
         if ($ref != $img_base) return;
 
-        $start = hexdec($block['block_entry']);
-        $end = hexdec($block['block_end']);
+        $start = $block['block_entry'];
+        $end = $block['block_end'];
         $rva = $start - $ref;
         $sz = $end - $start;
 
         //printf("start: 0x%x, size: %d\n", $rva, $sz);
-
         $data = $this->pe_parser->getBinaryByRva($rva, $sz);
         //printf("0x%x: %s\n", $rva, self::string_hex($data));
 
         $insn = cs_disasm($this->capstone, $data, $start);
 
-        $ins = end($insn);
-        /*
+        //$ins = end($insn);
+        //self::print_ins($ins);
+        //$x86 = &$ins->detail->x86;
+        //self::print_x86_detail($x86);
+        //printf("\n");
+
         foreach ($insn as $ins) {
             self::print_ins($ins);
 
-            $x86 = &$ins->detail->x86;
-            self::print_x86_detail($x86);
+            //$x86 = &$ins->detail->x86;
+            //self::print_x86_detail($x86);
 
             printf("\n");
         }
-        */
-        self::print_ins($ins);
-        //$x86 = &$ins->detail->x86;
-        //self::print_x86_detail($x86);
-        printf("\n");
 
         $stop = $ins->address + count($ins->bytes);
         if ($stop != $end) {
@@ -204,43 +362,83 @@ class BbAnalyzer
         }
     }
 
-    public function experiment2()
+    public function doAssignXref()
     {
-        foreach($this->trace_log->blocks as $block_id=>$block) {
-            $this->disasm($block_id);
-        }
-    }
+        if (!empty($this->ingress)) return;
 
-    public function experiment()
-    {
-        echo sprintf("Entry: 0x%x\n", $this->pe_parser->getHeaderValue('opt.AddressOfEntryPoint'));
+        $last_block_id = null;
+        $dirty = false;
 
         for ($i=1; $i<=$this->trace_log->getLogCount(); $i++) {
             $this->trace_log->parseLog($i, 0,
-                function($header, $raw_data) {
+                function($header, $raw_data) use (&$last_block_id, &$dirty) {
                 fprintf(STDERR, "Packet #%d\n", $header['pkt_no']);
 
                 $data = unpack('V*', $raw_data);
 
                 foreach($data as $block_id) {
-                    $this->disasm($block_id);
-
-                    if (isset($this->trace_log->functions[$block_id])) {
-                        $func = $this->trace_log->functions[$block_id];
-                        echo $func['function_name'].PHP_EOL;
+                    if (!is_null($last_block_id)) {
+                        if (!array_key_exists($block_id, $this->data->ingress)) {
+                            $this->data->ingress[ $block_id ] = [];
+                        }
+                        if (!array_key_exists($last_block_id, $this->data->ingress[$block_id])) {
+                            $dirty = true;
+                            $this->data->ingress[$block_id][$last_block_id] =  true;
+                        }
                     }
-                    if (isset($this->trace_log->blocks[$block_id])) {
-                        $block = $this->trace_log->blocks[$block_id];
-                        //echo "\t".dechex($block_id).PHP_EOL;
-                    } else if (isset($trace_log->symbols[$block_id])) {
-                        $sym = $this->trace_log->symbols[$block_id];
-                        echo "\t\t".dechex($block_id)." ".$sym['symbol_name'].PHP_EOL;
-                    } else {
-                        echo sprintf("Unknown: 0x%08x\n", $block_id);
-                    }
+                    $last_block_id = $block_id;
                 }
-            });
+                });
         }
 
+        foreach($this->data->ingress as $block_id => $befores) {
+            foreach($befores as $last_block_id => $true) {
+                if (!array_key_exists($last_block_id, $this->data->exgress)) {
+                    $this->data->exgress[ $last_block_id ] = [];
+                }
+                $this->data->exgress[$last_block_id][$block_id] = true;
+            }
+        }
+
+        return $dirty;
     }
+
+
+    public function serialize(): string
+    {
+        return serialize($this->data);
+    }
+
+    public function unserialize($serialized)
+    {
+        $this->data = unserialize($serialized);
+
+        $this->initialize();
+    }
+
+    public static function restore($fname)
+    {
+        $bb_analyzer = unserialize(file_get_contents($fname));
+        if ($bb_analyzer instanceof BbAnalyzer) {
+            $bb_analyzer->fname = $fname;
+            return $bb_analyzer;
+        }
+    }
+
+    public static function store(BbAnalyzer $bb_analyzer)
+    {
+        file_put_contents($bb_analyzer->fname, serialize($bb_analyzer));
+    }
+
+    public function doTheBest()
+    {
+        $dirty = false;
+        $dirty |= $this->doAssignJump();
+        $dirty |= $this->doAssignFunction();
+
+        if ($dirty) {
+            $this->save($this->trace_log);
+        }
+    }
+
 }

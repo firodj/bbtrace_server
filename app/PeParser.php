@@ -7,7 +7,7 @@ use Serializable;
 class PeParser implements Serializable
 {
     private $data;
-    private $headers;
+    public $headers;
 
     private $fp;
     private $name;
@@ -222,6 +222,15 @@ class PeParser implements Serializable
         return $va - $this->getHeaderValue('opt.ImageBase');
     }
 
+    public function rva2raw($rva)
+    {
+        $s = $this->findSection($rva);
+        if ($s) {
+            $raw = $s->raw + $s->ofs;
+            return $raw;
+        }
+    }
+
     public function findSection($rva)
     {
         if (empty($this->sections)) {
@@ -248,6 +257,11 @@ class PeParser implements Serializable
                 return (object)['n' => $n, 'ofs' => $rva - $s_rva, 'sz' => $s_sz, 'raw' => $raw];
             }
         }
+    }
+
+    public function getSection($n)
+    {
+        return $this->sections[$n];
     }
 
     public function findString($rva)
