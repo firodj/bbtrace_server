@@ -14,3 +14,9 @@
 $app->get('/', function () use ($app) {
     return view('greeting', ['version' => $app->version()]);
 });
+
+$app->group(['prefix' => 'api/v1'], function() use ($app)
+{
+    $app->get('blocks', 'BlockController@index');
+});
+
