@@ -25,34 +25,30 @@ class NearestValue {
      */
     public static function array_numeric_sorted_nearest($array, $value, $method = self::ARRAY_NEAREST_DEFAULT)
     {
-        $count = count($array);
+        $low = 0;
+        $high = count($array);
 
-        if($count == 0) {
-            return null;
-        }
-
-        $div_step               = 2;
-        $index                  = ceil($count / $div_step);
         $best_index             = null;
         $best_score             = null;
         $direction              = null;
-        $indexes_checked        = Array();
+        $indexes_checked        = [];
 
         while(true) {
-            if(isset($indexes_checked[$index])) {
-                break ;
-            }
+            $count = $high - $low;
+            if ($count == 0) break;
+
+            $index = $low + ($count > 1 ? (int)ceil($count / 2) : 0);
+            if(isset($indexes_checked[$index])) break;
 
             $curr_key = $array[$index] ?? null;
-            if($curr_key === null) {
-                break ;
-            }
+            if(is_null($curr_key)) break;
 
             $indexes_checked[$index] = true;
 
             // perfect match, nothing else to do
             if($curr_key == $value) {
-                return $curr_key;
+                $best_index = $index;
+                break;
             }
 
             $prev_key = $array[$index - 1] ?? null;
@@ -63,13 +59,13 @@ class NearestValue {
                 case self::ARRAY_NEAREST_DEFAULT:
                     $curr_score = abs($curr_key - $value);
 
-                    $prev_score = $prev_key !== null ? abs($prev_key - $value) : null;
-                    $next_score = $next_key !== null ? abs($next_key - $value) : null;
+                    $prev_score = is_null($prev_key) ? null : abs($prev_key - $value);
+                    $next_score = is_null($next_key) ? null : abs($next_key - $value);
 
                     if($prev_score === null) {
                         $direction = 1;
                     }else if ($next_score === null) {
-                        break 2;
+                        break 2; /* exit siwtch and while */
                     }else{
                         $direction = $next_score < $prev_score ? 1 : -1;
                     }
@@ -102,15 +98,18 @@ class NearestValue {
                     break;
             }
 
-            if(($curr_score !== null) && ($curr_score < $best_score) || ($best_score === null)) {
+            if (is_null($best_score) || (!is_null($curr_score) && ($curr_score < $best_score))) {
                 $best_index = $index;
                 $best_score = $curr_score;
             }
 
-            $div_step *= 2;
-            $index += $direction * ceil($count / $div_step);
+            if ($direction == -1) {
+                $high = $index;
+            } else {
+                $low = $index+1;
+            }
         }
 
-        return $array[$best_index];
+        return $array[$best_index] ?? null;
     }
 }
