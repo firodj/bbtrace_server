@@ -7,9 +7,6 @@
   <body>
     <div id="app">
     </div>
-    <p>
-        <?php echo $version; ?>
-    </p>
     <script src="js/bundle.js" type="text/javascript"></script>
   </body>
 </html>

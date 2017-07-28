@@ -11,6 +11,8 @@ class BbAnalyzer implements Serializable
 
     private $data;
 
+    const XREF_TRACE = 1;
+
     public function __construct($fname)
     {
         $this->fname = $fname;
@@ -383,7 +385,7 @@ class BbAnalyzer implements Serializable
                         }
                         if (!array_key_exists($last_block_id, $this->data->ingress[$block_id])) {
                             $dirty = true;
-                            $this->data->ingress[$block_id][$last_block_id] =  true;
+                            $this->data->ingress[$block_id][$last_block_id] = self::XREF_TRACE;
                         }
                     }
                     $last_block_id = $block_id;
@@ -391,18 +393,22 @@ class BbAnalyzer implements Serializable
                 });
         }
 
-        foreach($this->data->ingress as $block_id => $befores) {
-            foreach($befores as $last_block_id => $true) {
-                if (!array_key_exists($last_block_id, $this->data->exgress)) {
-                    $this->data->exgress[ $last_block_id ] = [];
-                }
-                $this->data->exgress[$last_block_id][$block_id] = true;
-            }
-        }
+        $this->buildEgress();
 
         return $dirty;
     }
 
+    public function buildExgress()
+    {
+        foreach($this->data->ingress as $block_id => $befores) {
+            foreach($befores as $last_block_id => $xref_value) {
+                if (!array_key_exists($last_block_id, $this->data->exgress)) {
+                    $this->data->exgress[ $last_block_id ] = [];
+                }
+                $this->data->exgress[$last_block_id][$block_id] = $xref_value;
+            }
+        }
+    }
 
     public function serialize(): string
     {
@@ -439,6 +445,27 @@ class BbAnalyzer implements Serializable
         if ($dirty) {
             $this->save($this->trace_log);
         }
+    }
+
+    public function getBlock($id)
+    {
+        $block = $this->trace_log->blocks[$id] ?? null;
+
+        if (!$block) return;
+
+        $data = [
+            'id' => (int)$id,
+            'module_id' => $block['module_start_ref'],
+            'end' => $block['block_end'],
+            'jump' => $block['jump']['mnemonic'],
+            'ingress' => $this->data->exgress[$id] ?? null,
+            'exgress' => $this->data->ingress[$id] ?? null,
+        ];
+        if (isset($block['function_id'])) {
+            $data['function_id'] = $block['function_id'];
+        }
+
+        return $data;
     }
 
 }

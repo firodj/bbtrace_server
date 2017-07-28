@@ -14,15 +14,7 @@ class Analyze extends Command
 
     public function handle()
     {
-        $fname = base_path('../logs/psxfin.bb_analyzer.dump');
-
-        if (file_exists($fname)) {
-            $anal = BbAnalyzer::restore($fname);
-        } else {
-            $anal = new BbAnalyzer($fname);
-            $anal->open(base_path('../logs/psxfin.trace_log.dump'));
-            $anal->open(base_path('../logs/psxfin.pe_parser.dump'));
-        }
+        $anal = app(BbAnalyzer::class);
 
         if (!$this->option('pass')) {
             $anal->doTheBest();
