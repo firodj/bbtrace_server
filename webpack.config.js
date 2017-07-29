@@ -18,6 +18,7 @@ module.exports = {
         include: APP_DIR + '/js',
         loader: 'babel-loader',
         exclude: /node_modules/,
+        include: path.resolve(__dirname, 'resources/js'),
         query: {
           presets: ['env', 'react']
         }
