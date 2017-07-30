@@ -62,13 +62,12 @@ class BbAnalyzer implements Serializable
 
     public static function print_ins($ins)
     {
-        printf("0x%x:\t%s", $ins->address, $ins->mnemonic);
-        if ($ins->op_str) printf("\t\t%s", $ins->op_str);
+        printf("%X: %34s | %-10s", $ins->address, self::string_hex($ins->bytes), $ins->mnemonic);
+        if ($ins->op_str) printf(" %s", $ins->op_str);
 
         return; // FIXME:
         printf("\n");
 
-        printf("bytes:\t%s\n", self::string_hex($ins->bytes));
         printf("\tsize: %s\n", count($ins->bytes));
 
         if (count($ins->detail->regs_read)) {
@@ -353,10 +352,9 @@ class BbAnalyzer implements Serializable
         return $dirty;
     }
 
-    protected function disasm($block_id)
+    public function disasm($block_id, $detail)
     {
         $img_base = $this->pe_parser->getHeaderValue('opt.ImageBase');
-        //echo sprintf("Rva: 0x%x\n", $block_id, $this->pe_parser->va2rva($block_id));
         if (!isset($this->trace_log->blocks[$block_id])) return;
 
         $block = $this->trace_log->blocks[$block_id];
@@ -369,23 +367,17 @@ class BbAnalyzer implements Serializable
         $rva = $start - $ref;
         $sz = $end - $start;
 
-        //printf("start: 0x%x, size: %d\n", $rva, $sz);
         $data = $this->pe_parser->getBinaryByRva($rva, $sz);
-        //printf("0x%x: %s\n", $rva, self::string_hex($data));
 
         $insn = cs_disasm($this->capstone, $data, $start);
-
-        //$ins = end($insn);
-        //self::print_ins($ins);
-        //$x86 = &$ins->detail->x86;
-        //self::print_x86_detail($x86);
-        //printf("\n");
 
         foreach ($insn as $ins) {
             self::print_ins($ins);
 
-            //$x86 = &$ins->detail->x86;
-            //self::print_x86_detail($x86);
+            if ($detail) {
+                $x86 = &$ins->detail->x86;
+                self::print_x86_detail($x86);
+            }
 
             printf("\n");
         }
@@ -400,27 +392,116 @@ class BbAnalyzer implements Serializable
     {
         if (!empty($this->ingress)) return;
 
-        $last_block_id = null;
+        $last_block_ids = [];
         $dirty = false;
+
+        $stacks = [];
+        $callbacks = [];
 
         for ($i=1; $i<=$this->trace_log->getLogCount(); $i++) {
             $this->trace_log->parseLog($i, 0,
-                function($header, $raw_data) use (&$last_block_id, &$dirty) {
+                function($header, $raw_data) use (&$last_block_ids, &$dirty, &$stacks, &$callbacks) {
+
                 fprintf(STDERR, "Packet #%d\n", $header['pkt_no']);
+                $thread_id = $header['thread'];
+
+                if (! array_key_exists($thread_id, $last_block_ids)) {
+                    $last_block_ids[$thread_id] = null;
+                }
 
                 $data = unpack('V*', $raw_data);
 
                 foreach($data as $block_id) {
-                    if (!is_null($last_block_id)) {
-                        if (!array_key_exists($block_id, $this->data->ingress)) {
-                            $this->data->ingress[ $block_id ] = [];
-                        }
-                        if (!array_key_exists($last_block_id, $this->data->ingress[$block_id])) {
-                            $dirty = true;
-                            $this->data->ingress[$block_id][$last_block_id] = self::XREF_TRACE;
+                    $last_block_id = $last_block_ids[$thread_id];
+                    $last_block_ids[$thread_id] = $block_id;
+
+                    if (is_null($last_block_id)) continue;
+
+                    // do Xrefs
+                    if (!array_key_exists($block_id, $this->data->ingress)) {
+                        $this->data->ingress[ $block_id ] = [];
+                    }
+                    if (!array_key_exists($last_block_id, $this->data->ingress[$block_id])) {
+                        $dirty = true;
+                        $this->data->ingress[$block_id][$last_block_id] = self::XREF_TRACE;
+                    }
+
+                    // stacts Trace
+                    $mnemonic = null;
+
+                    $last_symbol = null;
+                    $last_block = null;
+
+                    if (array_key_exists($last_block_id, $this->trace_log->symbols)) {
+                        $last_symbol = $this->trace_log->symbols[$last_block_id];
+                    } else if (array_key_exists($last_block_id, $this->trace_log->blocks)) {
+                        $last_block = $this->trace_log->blocks[$last_block_id];
+                        $mnemonic = $last_block['jump']['mnemonic'];
+                    }
+
+                    $block = null;
+                    $symbol = null;
+                    $maybe_callback = false;
+
+                    if (array_key_exists($block_id, $this->trace_log->symbols)) {
+                        $symbol = $this->trace_log->symbols[$block_id];
+                    } else if (array_key_exists($block_id, $this->trace_log->blocks)) {
+                        $block = $this->trace_log->blocks[$block_id];
+                        if (isset($last_symbol)) {
+                            $mnemonic = 'ret';
+                            $maybe_callback = true;
                         }
                     }
-                    $last_block_id = $block_id;
+
+                    if (isset($last_block)) {
+                        fprintf(STDERR, "%X\n", $last_block['block_entry']);
+                    }
+                    if (isset($last_symbol)) {
+                        fprintf(STDERR, "%X: %s\n", $last_symbol['symbol_entry'], $last_symbol['symbol_name']);
+                    }
+                    // Mneomnic
+
+                    switch ($mnemonic) {
+                        case 'call':
+                            array_push($stacks, $last_block_id);
+                            fprintf(STDERR, "\tnext: %X\n", $last_block['block_end']);
+                            break;
+                        case 'ret':
+                            $stacks_fit = false;
+                            for($i=count($stacks); $i; $i--) {
+                                $pop_block_id = $stacks[$i-1];
+                                $pop_block = $this->trace_log->blocks[$pop_block_id];
+
+                                if ($pop_block['block_end'] == $block_id) {
+                                    $stacks_fit = true;
+                                    $stacks = array_slice($stacks, 0, $i-1);
+                                    fprintf(STDERR, "\tpopped: %X -> %X\n", $pop_block['block_entry'], $pop_block['block_end']);
+                                    break;
+                                }
+                            }
+
+                            if (!$stacks_fit) {
+                                fprintf(STDERR, "Return invalid stack: %X\n", $block_id);
+                                if ($maybe_callback) {
+                                    $callbacks[ $block_id ] = 1;
+                                }
+                                if (isset($last_block)) {
+                                    if (! array_key_exists($block_id, $callbacks)) {
+                                        $callbacks[ $block_id ] = 2;
+                                        
+                                        dump(array_map(function($s)
+                                            {
+                                                $b = $this->trace_log->blocks[$s];
+                                                return sprintf("%X: %X", $b['block_entry'], $b['block_end']);
+                                            }, $stacks)
+                                        );
+                                        //die();
+                                    }
+                                }
+                            }
+                            break;
+                    }
+
                 }
 
                 });
