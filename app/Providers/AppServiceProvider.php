@@ -16,17 +16,11 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(BbAnalyzer::class, function($app)
         {
-            // FIXME: use configurable value
-            $fname = base_path('../logs/psxfin.bb_analyzer.dump');
+            $bb_analyzer = BbAnalyzer::restore();
 
-            if (file_exists($fname)) {
-                $bb_analyzer = BbAnalyzer::restore($fname);
-            } else {
-                $bb_analyzer = new BbAnalyzer($fname);
-                $bb_analyzer->open(base_path('../logs/psxfin.trace_log.dump'));
-                $bb_analyzer->open(base_path('../logs/psxfin.pe_parser.dump'));
+            if (! $bb_analyzer) {
+                $bb_analyzer = new BbAnalyzer();
             }
-
             return $bb_analyzer;
         });
     }

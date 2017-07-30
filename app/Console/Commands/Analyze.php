@@ -21,9 +21,9 @@ class Analyze extends Command
         }
 
         if ($this->option('replay')) {
-            $dirty = $this->doAssignXref();
+            $dirty = $anal->doAssignXref();
             if ($dirty) {
-                self::store($this);
+                $anal->store();
             }
         }
     }

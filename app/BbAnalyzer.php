@@ -13,14 +13,12 @@ class BbAnalyzer implements Serializable
 
     const XREF_TRACE = 1;
 
-    public function __construct($fname)
+    public function __construct()
     {
-        $this->fname = $fname;
+
         $this->data = (object) [
             'exgress' => [],
             'ingress' => [],
-            'fname_pe_parser' => null,
-            'fname_trace_log' => null,
         ];
 
         $this->initialize();
@@ -31,10 +29,21 @@ class BbAnalyzer implements Serializable
         $this->capstone = cs_open(CS_ARCH_X86, CS_MODE_32);
         cs_option($this->capstone, CS_OPT_DETAIL, CS_OPT_ON);
 
-        if ($this->data->fname_pe_parser)
-            $this->open($this->data->fname_pe_parser);
-        if ($this->data->fname_trace_log)
-            $this->open($this->data->fname_trace_log);
+        $this->path_exe = dirname(env('APP_EXE'));
+        $this->name_exe = basename(env('APP_EXE'));
+
+        $this->fname_pe_parser = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.pe_parser.dump';
+        $this->fname_trace_log = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.trace_log.dump';
+        $this->fname = self::makeDumpName();
+
+        $this->open();
+    }
+
+    public static function makeDumpName()
+    {
+        $path_exe = dirname(env('APP_EXE'));
+        $name_exe = basename(env('APP_EXE'));
+        return $path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$name_exe.'.bb_analyzer.dump';
     }
 
     public static function string_hex($bytes)
@@ -182,27 +191,47 @@ class BbAnalyzer implements Serializable
         return $this->pe_parser;
     }
 
-    public function open($fname)
+    public function open()
     {
-        $data = unserialize(file_get_contents($fname));
-        if ($data instanceof PeParser) {
-            $this->pe_parser = $data;
-            $this->pe_parser->open();
-            $this->data->fname_pe_parser = $fname;
-            return $data;
-        } else if ($data instanceof TraceLog) {
-            $this->trace_log = $data;
-            $this->data->fname_trace_log = $fname;
-            return $data;
+        if (file_exists($this->fname_pe_parser)) {
+            $data = unserialize(file_get_contents($this->fname_pe_parser));
+            if ($data instanceof PeParser) {
+                $this->pe_parser = $data;
+            }
+        }
+
+        if (!isset($this->pe_parser)) {
+            $this->pe_parser = new PeParser(env('APP_EXE'));
+            $this->pe_parser->parsePe();
+            file_put_contents($this->fname_pe_parser, serialize($this->pe_parser));
+        }
+
+        $this->pe_parser->open();
+
+        if (file_exists($this->fname_trace_log)) {
+            $data = unserialize(file_get_contents($this->fname_trace_log));
+            if ($data instanceof TraceLog) {
+                $this->trace_log = $data;
+            }
+        }
+
+        if (! isset($this->trace_log)) {
+            $info = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.log.info';
+
+            $this->trace_log = new TraceLog($info);
+            $this->trace_log->parseInfo();
+            $this->trace_log->parseFunc();
+
+            file_put_contents($this->fname_trace_log, serialize($this->trace_log));
         }
     }
 
     public function save($data)
     {
         if ($data instanceof PeParser) {
-            file_put_contents($this->data->fname_pe_parser, serialize($data));
+            file_put_contents($this->fname_pe_parser, serialize($data));
         } else if ($data instanceof TraceLog) {
-            file_put_contents($this->data->fname_trace_log, serialize($data));
+            file_put_contents($this->fname_trace_log, serialize($data));
         }
     }
 
@@ -246,6 +275,9 @@ class BbAnalyzer implements Serializable
                 $dirty = true;
                 $block['function_id'] = $function_id;
             } else {
+                if (!array_key_exists($block_id, $this->data->ingress)) {
+                    continue;
+                }
                 $befores = array_keys( $this->data->ingress[$block_id] );
 
                 foreach($befores as $before_id) {
@@ -390,10 +422,11 @@ class BbAnalyzer implements Serializable
                     }
                     $last_block_id = $block_id;
                 }
+
                 });
         }
 
-        $this->buildEgress();
+        $this->buildExgress();
 
         return $dirty;
     }
@@ -422,18 +455,21 @@ class BbAnalyzer implements Serializable
         $this->initialize();
     }
 
-    public static function restore($fname)
+    public static function restore()
     {
-        $bb_analyzer = unserialize(file_get_contents($fname));
-        if ($bb_analyzer instanceof BbAnalyzer) {
-            $bb_analyzer->fname = $fname;
-            return $bb_analyzer;
+        $fname = self::makeDumpName();
+
+        if (file_exists($fname)) {
+            $bb_analyzer = unserialize(file_get_contents($fname));
+            if ($bb_analyzer instanceof BbAnalyzer) {
+                return $bb_analyzer;
+            }
         }
     }
 
-    public static function store(BbAnalyzer $bb_analyzer)
+    public function store()
     {
-        file_put_contents($bb_analyzer->fname, serialize($bb_analyzer));
+        file_put_contents($this->fname, serialize($this));
     }
 
     public function doTheBest()
