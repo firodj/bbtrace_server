@@ -9,20 +9,18 @@ class Analyze extends Command
 {
     protected $signature = 'analyze
                             {--replay : Replay traces to build Xrefs}
-                            {--pass : Pass over basic analy}';
+                            {--force : Force rerun basic analyze}';
     protected $description = 'Analyze';
 
     public function handle()
     {
         $anal = app(BbAnalyzer::class);
-
-        if (!$this->option('pass')) {
-            $anal->doTheBest();
-        }
+        $anal->doTheBest($this->option('force'));
 
         if ($this->option('replay')) {
             $dirty = $anal->doAssignXref();
             if ($dirty) {
+                fprintf(STDERR, "Save analysis.\n");
                 $anal->store();
             }
         }

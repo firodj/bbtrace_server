@@ -15,10 +15,10 @@ class BbAnalyzer implements Serializable
 
     public function __construct()
     {
-
         $this->data = (object) [
             'exgress' => [],
             'ingress' => [],
+            'callbacks' => [],
         ];
 
         $this->initialize();
@@ -60,25 +60,22 @@ class BbAnalyzer implements Serializable
         );
     }
 
-    public static function print_ins($ins)
+    public static function print_ins($ins, $detail)
     {
         printf("%X: %34s | %-10s", $ins->address, self::string_hex($ins->bytes), $ins->mnemonic);
         if ($ins->op_str) printf(" %s", $ins->op_str);
 
-        return; // FIXME:
-        printf("\n");
-
-        printf("\tsize: %s\n", count($ins->bytes));
-
-        if (count($ins->detail->regs_read)) {
-            printf("\tregisters read: %s\n", implode(" ", $ins->detail->regs_read));
-        }
-        if (count($ins->detail->regs_write)) {
-            printf("\tregisters modified: %s\n", implode(" ", $ins->detail->regs_write));
-        }
-        if (count($ins->detail->groups)) {
-            printf("\tinstructions groups: %s\n",
-                implode(" ", $ins->detail->groups));
+        if ($detail) {
+            if (count($ins->detail->regs_read)) {
+                printf("\tregisters read: %s\n", implode(" ", $ins->detail->regs_read));
+            }
+            if (count($ins->detail->regs_write)) {
+                printf("\tregisters modified: %s\n", implode(" ", $ins->detail->regs_write));
+            }
+            if (count($ins->detail->groups)) {
+                printf("\tinstructions groups: %s\n",
+                    implode(" ", $ins->detail->groups));
+            }
         }
     }
 
@@ -253,16 +250,21 @@ class BbAnalyzer implements Serializable
             $this->function_ranges = array_keys($this->trace_log->functions);
             sort($this->function_ranges, SORT_NUMERIC);
         }
+
     }
 
-    public function doAssignFunction()
+    public function doAssignFunction($force = false)
     {
         $this->buildRanges();
 
         $dirty = false;
 
         foreach($this->trace_log->blocks as $block_id => &$block) {
-            if (isset($block['function_id'])) continue;
+            if (isset($block['function_id'])) {
+                if (!$force) {
+                    continue;
+                }
+            }
 
             $function_id = NearestValue::array_numeric_sorted_nearest($this->function_ranges,
                 $block_id,
@@ -274,37 +276,56 @@ class BbAnalyzer implements Serializable
                 $dirty = true;
                 $block['function_id'] = $function_id;
             } else {
-                if (!array_key_exists($block_id, $this->data->ingress)) {
-                    continue;
+                // check via callback
+                if (array_key_exists($block_id, $this->data->callbacks)) {
+                    $block['function_id'] = $block_id;
+                    if (!array_key_exists($block_id, $this->trace_log->functions)) {
+                        $this->trace_log->functions[$block_id] = [
+                            'function_entry' => $block_id,
+                            'function_end' => $block['block_entry'],
+                            'function_name' => 'callback_'.dechex($block_id),
+                        ];
+
+                        dump($this->trace_log->functions[$block_id]);
+                        $this->function_ranges[] = $block_id;
+                        sort($this->function_ranges, SORT_NUMERIC);
+                    }
+                    $dirty = true;
                 }
-                $befores = array_keys( $this->data->ingress[$block_id] );
 
-                foreach($befores as $before_id) {
-                    if (isset($this->trace_log->blocks[$before_id])) {
-                        $before = $this->trace_log->blocks[$before_id];
+                // check by ingress (via jmp and jcxx)
+                if (array_key_exists($block_id, $this->data->ingress)) {
+                    $befores = array_keys( $this->data->ingress[$block_id] );
 
-                        if (in_array($before['jump']['mnemonic'], ['jmp', 'jge'])) {
-                            if (isset($before['function_id'])) {
+                    foreach($befores as $before_id) {
+                        if (isset($this->trace_log->blocks[$before_id])) {
+                            $before = $this->trace_log->blocks[$before_id];
+
+                            if (in_array($before['jump']['mnemonic'], ['jmp', 'jge'])) {
+                                if (isset($before['function_id'])) {
+                                    $dirty = true;
+                                    $block['function_id'] = $before['function_id'];
+                                    break;
+                                }
+                            }
+                            if ($before['jump']['mnemonic'] == 'call') {
+                                $block['function_id'] = $block_id;
+                                if (!array_key_exists($block_id, $this->trace_log->functions)) {
+                                    $this->trace_log->functions[$block_id] = [
+                                        'function_entry' => $block_id,
+                                        'function_end' => $block['block_entry'],
+                                        'function_name' => 'proc_'.dechex($block_id),
+                                    ];
+
+                                    dump($this->trace_log->functions[$block_id]);
+                                    $this->function_ranges[] = $block_id;
+                                    sort($this->function_ranges, SORT_NUMERIC);
+                                }
                                 $dirty = true;
-                                $block['function_id'] = $before['function_id'];
-                                break;
                             }
+                        } else if (isset($this->trace_log->symbols[$before_id])) {
+                            $before = $this->trace_log->symbols[$before_id];
                         }
-                        if ($before['jump']['mnemonic'] == 'call') {
-                            $block['function_id'] = $block_id;
-                            if (!array_key_exists($block_id, $this->trace_log->functions)) {
-                                $this->trace_log->functions[$block_id] = [
-                                    'function_entry' => $block_id,
-                                    'function_end' => $block['block_entry'],
-                                    'function_name' => 'proc_'.dechex($block_id),
-                                ];
-
-                                dump($this->trace_log->functions[$block_id]);
-                            }
-                            $dirty = true;
-                        }
-                    } else if (isset($this->trace_log->symbols[$before_id])) {
-                        $before = $this->trace_log->symbols[$before_id];
                     }
                 }
             }
@@ -313,14 +334,16 @@ class BbAnalyzer implements Serializable
         return $dirty;
     }
 
-    protected function doAssignJump()
+    protected function doAssignJumpAndCallbacks($force)
     {
         $img_base = $this->pe_parser->getHeaderValue('opt.ImageBase');
 
         $dirty = false;
 
         foreach($this->trace_log->blocks as $block_id => &$block) {
-            if (isset($block['jump'])) continue;
+            if (isset($block['jump']) && isset($block['callbacks'])) {
+                if (!$force) continue;
+            }
 
             $ref = $block['module_start_ref'];
 
@@ -334,13 +357,38 @@ class BbAnalyzer implements Serializable
             $data = $this->pe_parser->getBinaryByRva($rva, $sz);
             $insn = cs_disasm($this->capstone, $data, $start);
 
-            $ins = end($insn);
+            $callbacks = [];
+
+            foreach ($insn as $ins) {
+                if (!in_array($ins->mnemonic, ['mov', 'push'])) continue;
+
+                $x86 = &$ins->detail->x86;
+                foreach($x86->operands as $op) {
+                    if ($op->type === 'imm' && !in_array('write', $op->access)) {
+
+                        $rva = $this->pe_parser->va2rva($op->imm);
+                        $s = $this->pe_parser->findSection($rva);
+
+                        if (isset($s)) {
+                            $section = $this->pe_parser->getSection($s->n);
+                            if (array_key_exists($op->imm, $this->trace_log->blocks)) {
+                                $callbacks[ $op->imm ] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            $block['callbacks'] = $callbacks;
+
+            // $ins = end($insn);
 
             $block['jump'] = [
                 'address' => $ins->address,
                 'mnemonic' => $ins->mnemonic,
                 'code' => pack('C*', ...$ins->bytes)
             ];
+
             $dirty = true;
 
             $stop = $ins->address + count($ins->bytes);
@@ -372,7 +420,7 @@ class BbAnalyzer implements Serializable
         $insn = cs_disasm($this->capstone, $data, $start);
 
         foreach ($insn as $ins) {
-            self::print_ins($ins);
+            self::print_ins($ins, $detail);
 
             if ($detail) {
                 $x86 = &$ins->detail->x86;
@@ -386,6 +434,24 @@ class BbAnalyzer implements Serializable
         if ($stop != $end) {
             die('wrong dissamble');
         }
+
+        fprintf(STDERR, "function_id: %X\n", $block['function_id'] ?? null);
+        foreach($this->data->ingress[$block_id] as $ingress => $code) {
+            fprintf(STDERR, "- ingress: %X (%d)\n", $ingress, $code);
+        }
+        foreach($this->data->exgress[$block_id] as $exgress => $code) {
+            fprintf(STDERR, "- exgress: %X (%d)\n", $exgress, $code);
+        }
+        fprintf(STDERR, "callback: %d\n", $this->data->callbacks[$block_id] ?? null);
+
+        // dump($block);
+    }
+
+    protected function buildCallbacks()
+    {
+        foreach($this->trace_log->blocks as $block_id => $block) {
+            $this->data->callbacks += $block['callbacks'];
+        }
     }
 
     public function doAssignXref()
@@ -396,13 +462,14 @@ class BbAnalyzer implements Serializable
         $dirty = false;
 
         $stacks = [];
-        $callbacks = [];
+
+        $this->buildCallbacks();
 
         for ($i=1; $i<=$this->trace_log->getLogCount(); $i++) {
             $this->trace_log->parseLog($i, 0,
-                function($header, $raw_data) use (&$last_block_ids, &$dirty, &$stacks, &$callbacks) {
+                function($header, $raw_data) use (&$last_block_ids, &$dirty, &$stacks) {
 
-                fprintf(STDERR, "Packet #%d\n", $header['pkt_no']);
+                fprintf(STDERR, "Packet #%d thread:%x\n", $header['pkt_no'], $header['thread']);
                 $thread_id = $header['thread'];
 
                 if (! array_key_exists($thread_id, $last_block_ids)) {
@@ -453,42 +520,53 @@ class BbAnalyzer implements Serializable
                         }
                     }
 
+                    /***
                     if (isset($last_block)) {
                         fprintf(STDERR, "%X\n", $last_block['block_entry']);
                     }
                     if (isset($last_symbol)) {
                         fprintf(STDERR, "%X: %s\n", $last_symbol['symbol_entry'], $last_symbol['symbol_name']);
                     }
+                     ***/
+
                     // Mneomnic
 
                     switch ($mnemonic) {
                         case 'call':
                             array_push($stacks, $last_block_id);
+                            /***
                             fprintf(STDERR, "\tnext: %X\n", $last_block['block_end']);
+                             ***/
                             break;
                         case 'ret':
                             $stacks_fit = false;
-                            for($i=count($stacks); $i; $i--) {
-                                $pop_block_id = $stacks[$i-1];
-                                $pop_block = $this->trace_log->blocks[$pop_block_id];
 
-                                if ($pop_block['block_end'] == $block_id) {
-                                    $stacks_fit = true;
-                                    $stacks = array_slice($stacks, 0, $i-1);
-                                    fprintf(STDERR, "\tpopped: %X -> %X\n", $pop_block['block_entry'], $pop_block['block_end']);
-                                    break;
+                            if (array_key_exists($block_id, $this->data->callbacks)) {
+                                $stacks_fit = true;
+                            } else {
+                                // stack unwind
+                                for($j=count($stacks); $j; $j--) {
+                                    $pop_block_id = $stacks[$j-1];
+                                    $pop_block = $this->trace_log->blocks[$pop_block_id];
+
+                                    if ($pop_block['block_end'] == $block_id) {
+                                        $stacks_fit = true;
+                                        $stacks = array_slice($stacks, 0, $j-1);
+                                        /***
+                                        fprintf(STDERR, "\tpopped: %X -> %X\n", $pop_block['block_entry'], $pop_block['block_end']);
+                                        ***/
+                                        break;
+                                    }
                                 }
                             }
 
                             if (!$stacks_fit) {
-                                fprintf(STDERR, "Return invalid stack: %X\n", $block_id);
-                                if ($maybe_callback) {
-                                    $callbacks[ $block_id ] = 1;
-                                }
                                 if (isset($last_block)) {
-                                    if (! array_key_exists($block_id, $callbacks)) {
-                                        $callbacks[ $block_id ] = 2;
-                                        
+                                    if (! array_key_exists($block_id, $this->data->callbacks)) {
+                                        fprintf(STDERR, "Return invalid stack: %X\n", $block_id);
+                                        $this->data->callbacks[ $block_id ] = 2;
+                                        $dirty = true;
+
                                         dump(array_map(function($s)
                                             {
                                                 $b = $this->trace_log->blocks[$s];
@@ -499,10 +577,14 @@ class BbAnalyzer implements Serializable
                                     }
                                 }
                             }
+
                             break;
                     }
 
                 }
+
+                // SKIP: testing
+                //return true;
 
                 });
         }
@@ -553,13 +635,14 @@ class BbAnalyzer implements Serializable
         file_put_contents($this->fname, serialize($this));
     }
 
-    public function doTheBest()
+    public function doTheBest($force = false)
     {
         $dirty = false;
-        $dirty |= $this->doAssignJump();
-        $dirty |= $this->doAssignFunction();
+        $dirty |= $this->doAssignJumpAndCallbacks($force);
+        $dirty |= $this->doAssignFunction($force);
 
         if ($dirty) {
+            fprintf(STDERR, "Saving trace log...\n");
             $this->save($this->trace_log);
         }
     }

@@ -16,7 +16,7 @@ class PeParser implements Serializable
     private $sections;
 
     const NUM_DIR_ENTRIES = 16;
-    const DIR_NAMES = ['EXPORT', 'IMPORT', 'RESOURCE', 'EXCEPTION', 
+    const DIR_NAMES = ['EXPORT', 'IMPORT', 'RESOURCE', 'EXCEPTION',
         'SECURITY', 'BASERELOC', 'DEBUG', 'ARCHITECTURE',
         'GLOBALPTR', 'TLS', 'LOAD_CONFIG', 'BOUND_IMPORT',
         'IAT', 'DELAY_IMPORT', 'COM_DESCRIPTOR'];
@@ -233,6 +233,8 @@ class PeParser implements Serializable
 
     public function findSection($rva)
     {
+        if ($rva < 0) return;
+
         if (empty($this->sections)) {
             $num_secs = $this->getHeaderValue('file.NumberOfSections');
             for ($n = 0; $n < $num_secs; $n++) {
@@ -502,7 +504,7 @@ class PeParser implements Serializable
 
         foreach($this->headers as $name=>$header) {
             $value = $this->getHeaderValue($name);
-            $output .= sprintf("0x%04x %s %s\n", $header[0], $name, 
+            $output .= sprintf("0x%04x %s %s\n", $header[0], $name,
                 is_array($value) ? '<BINARY>' : (is_string($value) ? $value : '0x'.dechex($value)));
         }
 
