@@ -24,6 +24,8 @@ class Analyze extends Command
                 $anal->store();
             }
         }
+
+        $anal->experiment();
     }
 }
 
