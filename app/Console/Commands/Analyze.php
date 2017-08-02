@@ -15,17 +15,27 @@ class Analyze extends Command
     public function handle()
     {
         $anal = app(BbAnalyzer::class);
-        $anal->doTheBest($this->option('force'));
+
+        $dirty = false;
+        $force = $this->option('force');
+
+        $dirty |= $anal->doAssignJumpAndCallbacks($force);
+        $dirty |= $anal->doAssignFunction($force);
+
 
         if ($this->option('replay')) {
-            $dirty = $anal->doAssignXref();
-            if ($dirty) {
-                fprintf(STDERR, "Save analysis.\n");
-                $anal->store();
-            }
+            $dirty |= $anal->doAssignXref();
         }
 
-        $anal->experiment();
+        if ($dirty) {
+            fprintf(STDERR, "Saving trace log.\n");
+            $anal->save($anal->trace_log);
+
+            fprintf(STDERR, "Save analysis.\n");
+            $anal->store();
+        }
+
+        //$anal->experiment();
     }
 }
 

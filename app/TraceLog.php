@@ -18,6 +18,7 @@ class TraceLog implements Serializable
     public $imports;
     public $exceptions;
     public $functions;
+    public $callbacks;
 
     const PKT_CODE_TRACE = 1;
 
@@ -31,8 +32,6 @@ class TraceLog implements Serializable
             throw new Exception("File name error: $fname");
         }
 
-        $this->name = $fname;
-
         $this->data = (object)[
             'blocks' => [],
             'symbols' => [],
@@ -40,7 +39,9 @@ class TraceLog implements Serializable
             'imports' => [],
             'exceptions' => [],
             'functions' => [],
+            'callbacks' => [],
             'name' => $fname,
+            'paging' => null,
         ];
 
         $this->blocks = &$this->data->blocks;
@@ -49,6 +50,7 @@ class TraceLog implements Serializable
         $this->imports = &$this->data->imports;
         $this->exceptions = &$this->data->exceptions;
         $this->functions = &$this->data->functions;
+        $this->callbacks = &$this->data->callbacks;
         $this->name = &$this->data->name;
     }
 
@@ -65,38 +67,73 @@ class TraceLog implements Serializable
         return $this->log_count;
     }
 
-    /* callback return non zero to stop */
-    public function parseLog($log_nbr, $pkt_start, $callback)
+    public function buildPaging()
     {
-        $fpath = sprintf("%s.%04d", $this->name, $log_nbr);
-        fprintf(STDERR, "Open: %s\n", $fpath);
+        $this->data->paging = [];
 
-        $fp = fopen($fpath, 'rb');
-        $n = 0;
-        $ret = null;
+        for ($log_nbr=1; $log_nbr <= $this->getLogCount(); $log_nbr++) {
+            $fpath = sprintf("%s.%04d", $this->name, $log_nbr);
+            $fp = fopen($fpath, 'rb');
 
-        while (!feof($fp)) {
-            $data = fread($fp, (4+8+4));
-            if (!feof($fp)) {
-                $data = unpack('Lcode/Qts/Lthread', $data);
-            } else break;
+            while (!feof($fp)) {
+                $pos = ftell($fp);
+                $data = fread($fp, (4+8+4));
+                if (!feof($fp)) {
+                    $data = unpack('Lcode/Qts/Lthread', $data);
+                } else break;
 
-            if ($data['code'] == self::PKT_CODE_TRACE) {
-                $n++;
+                if ($data['code'] == self::PKT_CODE_TRACE) {
 
-                $header = array_merge($data, unpack('Lsize', fread($fp, 4)));
-                $header['pkt_no'] = $n;
+                    $this->data->paging[] = [$log_nbr, $pos];
 
-                if ($pkt_start && $n < $pkt_start) {
-                    fseek($fp, $header['size']*4, SEEK_CUR);
-                } else {
-                    $raw_data = fread($fp, $header['size']*4);
-                    $ret = $callback($header, $raw_data);
-                    if ($ret) break;
+                    $data = unpack('Lsize', fread($fp, 4));
+                    fseek($fp, $data['size']*4, SEEK_CUR);
                 }
             }
+
+            fclose($fp);
         }
-        fclose($fp);
+    }
+
+    /* callback return non zero to stop */
+    public function parseLog($pkt_start, $pkt_stop, $callback)
+    {
+        if (! isset($this->data->paging)) $this->buildPaging();
+
+        if (is_null($pkt_stop)) $pkt_stop = count($this->data->paging);
+
+        for ($pkt_no = $pkt_start; $pkt_no < $pkt_stop; $pkt_no++) {
+            $paging = $this->data->paging[ $pkt_no ];
+
+            $fpath = sprintf("%s.%04d", $this->name, $paging[0]);
+            //fprintf(STDERR, "Open: %s\n", $fpath);
+
+            $fp = fopen($fpath, 'rb');
+            $ret = null;
+            fseek($fp, $paging[1], SEEK_CUR);
+
+            if (feof($fp)) break;
+
+            $data = fread($fp, (4+8+4));
+
+            if (feof($fp)) break;
+
+            $data = unpack('Lcode/Qts/Lthread', $data);
+
+            if ($data['code'] == self::PKT_CODE_TRACE) {
+                $header = array_merge($data, unpack('Lsize', fread($fp, 4)));
+
+                $header['pkt_no'] = $pkt_no;
+
+                $raw_data = fread($fp, $header['size']*4);
+                $ret = $callback($header, $raw_data);
+
+                if ($ret) break;
+            }
+
+            fclose($fp);
+        }
+
         return $ret;
     }
 
@@ -218,6 +255,7 @@ class TraceLog implements Serializable
         $this->imports = &$this->data->imports;
         $this->exceptions = &$this->data->exceptions;
         $this->functions = &$this->data->functions;
+        $this->callbacks = &$this->data->callbacks;
         $this->name = &$this->data->name;
     }
 
@@ -230,8 +268,10 @@ class TraceLog implements Serializable
         $output.= sprintf("Imports: %d\n", count($this->imports));
         $output.= sprintf("Exceptions: %d\n", count($this->exceptions));
         $output.= sprintf("Functions: %d\n", count($this->functions));
+        $output.= sprintf("Callbacks: %d\n", count($this->callbacks));
         $output.= sprintf("Count: %d\n", $this->getLogCount());
 
         return $output;
     }
+
 }
