@@ -12,7 +12,12 @@
 */
 
 $app->get('/', function () use ($app) {
-    return view('greeting', ['version' => $app->version()]);
+    $anal = $app->make(App\BbAnalyzer::class);
+    $env = [
+        'name' => $anal->getName(),
+        'version' => $app->version(),
+    ];
+    return view('greeting', ['env' => $env]);
 });
 
 $app->group(['prefix' => 'api/v1'], function() use ($app)

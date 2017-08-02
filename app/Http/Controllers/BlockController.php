@@ -18,18 +18,31 @@ class BlockController extends Controller
         //
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $bb_analyzer = app(BbAnalyzer::class);
 
         $keys = array_keys($bb_analyzer->getTraceLog()->blocks);
 
-        return array_map(function($block_id) use ($bb_analyzer) {
+        $limit = $request->input('limit', 20);
+        $offset = (int) $request->input('offset', 0);
+        if ($offset < 0) $offset = 0;
+
+        $blocks = array_map(function($block_id) use ($bb_analyzer) {
             $block = $bb_analyzer->getTraceLog()->blocks[$block_id];
             return (object)[
                 'id' => $block_id,
             ];
-        }, array_slice($keys, 0, 20));
+        }, array_slice($keys,
+            $offset, $limit + 1)
+        );
+
+        $hasMore = count($blocks) > $limit;
+        if ($hasMore) array_pop($blocks);
+
+        $hasPrev = $offset > 0;
+
+        return ['blocks' => $blocks, 'hasMore' => $hasMore, 'hasPrev' => $hasPrev, 'offset' => $offset];
     }
 
     public function show(Request $request, $id)

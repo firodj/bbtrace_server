@@ -1,6 +1,5 @@
 import React from 'react';
 import {render} from 'react-dom';
-import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 import Root from './Root';
 
 import injectTapEventPlugin from 'react-tap-event-plugin';
@@ -17,9 +16,7 @@ require('../scss/index.scss');
 
 // Components
 const App = () => (
-  <MuiThemeProvider>
     <Root />
-  </MuiThemeProvider>
 );
 
 render(

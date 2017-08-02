@@ -44,6 +44,11 @@ class BbAnalyzer implements Serializable
         $this->open();
     }
 
+    public function getName()
+    {
+        return $this->name_exe;
+    }
+
     public static function makeDumpName()
     {
         $path_exe = dirname(env('APP_EXE'));
@@ -462,7 +467,7 @@ class BbAnalyzer implements Serializable
         return $dirty;
     }
 
-    public function disasm($block_id, $detail)
+    public function disasm($block_id)
     {
         $img_base = $this->pe_parser->getHeaderValue('opt.ImageBase');
         if (!isset($this->trace_log->blocks[$block_id])) return;
@@ -480,23 +485,15 @@ class BbAnalyzer implements Serializable
         $data = $this->pe_parser->getBinaryByRva($rva, $sz);
 
         $insn = cs_disasm($this->capstone, $data, $start);
+        return $insn;
+    }
 
-        foreach ($insn as $ins) {
-            self::print_ins($ins, $detail);
+    public function print_disasm($block_id, $detail)
+    {
+        $insn = $this->disasm($block_id);
+        if (! $insn) return;
 
-            if ($detail) {
-                $x86 = &$ins->detail->x86;
-                self::print_x86_detail($x86);
-            }
-
-            printf("\n");
-        }
-
-        $stop = $ins->address + count($ins->bytes);
-        if ($stop != $end) {
-            die('wrong dissamble');
-        }
-
+        $block = $this->trace_log->blocks[$block_id];
         if (isset($block['function_id'])) {
             $function_id = $block['function_id'];
             $function = $this->trace_log->functions[$function_id];
@@ -758,17 +755,18 @@ class BbAnalyzer implements Serializable
 
         if (!$block) return;
 
-        $data = [
+        $ingress = $this->data->ingress[$id] ?? null;
+        $exgress = $this->data->exgress[$id] ?? null;
+        $function = $this->trace_log->functions[ $block['function_id'] ?? null ] ?? null;
+
+        $data = array_merge($block, [
             'id' => (int)$id,
-            'module_id' => $block['module_start_ref'],
-            'end' => $block['block_end'],
-            'jump' => $block['jump']->mnemonic,
-            'ingress' => $this->data->exgress[$id] ?? null,
-            'exgress' => $this->data->ingress[$id] ?? null,
-        ];
-        if (isset($block['function_id'])) {
-            $data['function_id'] = $block['function_id'];
-        }
+            'type' => 'block',
+            'ingress' => $ingress,
+            'exgress' => $exgress,
+            'function' => $function,
+            'disasm' => $this->disasm($id)
+        ]);
 
         return $data;
     }
