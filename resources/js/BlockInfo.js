@@ -1,7 +1,12 @@
 import React, { Component } from 'react';
 import Paper from 'material-ui/Paper';
 import TextField from 'material-ui/TextField';
+import InputLabel from 'material-ui/Input';
 import Typography from 'material-ui/Typography';
+import List, { ListItem, ListItemIcon, ListItemText } from 'material-ui/List';
+import Avatar from 'material-ui/Avatar';
+
+import { orangeAvatar, purpleAvatar, blueAvatar } from './colors';
 
 const sprintf = require('sprintf-js').sprintf;
 
@@ -24,55 +29,33 @@ class BlockInfo extends Component {
 
     return (<div>
       <Paper style={paperStyle}>
-        <TextField
-          id="block_entry"
-          label="Entry"
-          value={sprintf("%X", this.props.info.block_entry)}
-          style={textFieldStyle}
-          margin="normal"
-        />
-        <TextField
-          id="block_end"
-          label="End"
-          value={sprintf("%X", this.props.info.block_end)}
-          style={textFieldStyle}
-          margin="normal"
-        />
-        <TextField
-          id="block_end"
-          label="End"
-          value={sprintf("%X", this.props.info.block_end)}
-          style={textFieldStyle}
-          margin="normal"
-        />
-        { this.props.info.function && <TextField
-          id="function_entry"
-          label="Function"
-          value={sprintf("%X", this.props.info.function.function_entry)}
-          style={textFieldStyle}
-          margin="normal"
-        /> }
-        { this.props.info.function && <TextField
-          id="function_name"
-          label="Name"
-          value={sprintf("%s", this.props.info.function.function_name)}
-          style={textFieldStyle}
-          margin="normal"
-        /> }
-        { this.props.info.jump && <TextField
-          id="jump_mnemonic"
-          label="Jump"
-          value={sprintf("%s", this.props.info.jump.mnemonic)}
-          style={textFieldStyle}
-          margin="normal"
-        /> }
-        { this.props.info.jump.target && <TextField
-          id="jump_target"
-          label="Target"
-          value={sprintf("%X", this.props.info.jump.target)}
-          style={textFieldStyle}
-          margin="normal"
-        /> }
+        <List disablePadding>
+          <ListItem button>
+            <Avatar style={orangeAvatar}>B</Avatar>
+            <ListItemText
+              primary={sprintf("%X", this.props.info.block_entry)}
+              secondary={sprintf("%X", this.props.info.block_end)}
+            />
+          </ListItem>
+          { this.props.info.function && 
+          <ListItem button>
+            <Avatar style={purpleAvatar}>F</Avatar>
+            <ListItemText
+              primary={sprintf("%X", this.props.info.function.function_entry)}
+              secondary={sprintf("%s", this.props.info.function.function_name)}
+            />
+          </ListItem>
+          }
+          { this.props.info.jump &&
+          <ListItem button>
+            <Avatar style={blueAvatar}>J</Avatar>
+            <ListItemText
+              primary={this.props.info.jump.target ? sprintf("%X", this.props.info.jump.target) : '???'}
+              secondary={sprintf("%s", this.props.info.jump.mnemonic)}
+            />
+          </ListItem>
+          }
+        </List>
       </Paper>
       <Paper style={paperStyle}>
        { this.props.info.disasm.map((ins) => (

@@ -28,11 +28,10 @@ class BlockController extends Controller
         $offset = (int) $request->input('offset', 0);
         if ($offset < 0) $offset = 0;
 
+        $bb_analyzer = app(BbAnalyzer::class);
+
         $blocks = array_map(function($block_id) use ($bb_analyzer) {
-            $block = $bb_analyzer->getTraceLog()->blocks[$block_id];
-            return (object)[
-                'id' => $block_id,
-            ];
+            return $bb_analyzer->getBlock($block_id);
         }, array_slice($keys,
             $offset, $limit + 1)
         );

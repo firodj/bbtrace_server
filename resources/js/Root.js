@@ -10,6 +10,8 @@ import Typography from 'material-ui/Typography';
 import IconButton from 'material-ui/IconButton';
 import MenuIcon from 'material-ui-icons/Menu';
 import BlockInfo from './BlockInfo';
+import { orangeAvatar } from './colors';
+import Avatar from 'material-ui/Avatar';
 
 const sprintf = require('sprintf-js').sprintf;
 
@@ -115,14 +117,14 @@ class Root extends React.Component {
           </Toolbar>
         </AppBar>
         <Grid container gutter={0}>
-          <Grid item xs={2}>
+          <Grid item xs={3}>
             <List style={listStyle} dense={true} disablePadding={true}>
               { this.state.hasPrev && <ListButton primary="Prev" onClick={this.handlePrevClick} /> }
               <ListBlocks blocks={this.state.blocks} onClick={this.handleBlockClick} />
               { this.state.hasMore && <ListButton primary="More" onClick={this.handleMoreClick} /> }
             </List>
           </Grid>
-          <Grid item xs={10}>
+          <Grid item xs={9}>
             { this.state.info.type === 'block' && <BlockInfo info={this.state.info} /> }
           </Grid>
         </Grid>
@@ -145,12 +147,16 @@ Root.defaultProps = {
   title: window.env.name,
 };
 
+const smallAvatar = {
+  width: 20,
+  height: 20,
+};
+
 const ListBlocks = ({ blocks, onClick }) => <div>{ blocks.map( (block) =>
     <ListItem button key={block.id} onClick={() => onClick(block.id)}>
-      <ListItemIcon>
-        <StarBorder />
-      </ListItemIcon>
-      <ListItemText primary={sprintf("%X", block.id)} />
+      <Avatar style={ orangeAvatar }>B</Avatar>
+      <ListItemText primary={sprintf("%X", block.id)}
+        secondary={block.function ? block.function.function_name : '-'} />
     </ListItem>
     ) }
   </div>
