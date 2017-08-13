@@ -60,8 +60,8 @@ class TraceLog implements Serializable
         if (!isset($this->log_count)) {
             $log_count = 0;
             for (;;$log_count++) {
-                $file_name = sprintf("%s.%04d", $this->file_name, $log_count+1);
-                if (!is_file($file_name)) break;
+                $name = $this->getLogName($log_count+1);
+                if (!file_exists($name)) break;
             }
             $this->log_count = $log_count;
         }
@@ -73,8 +73,8 @@ class TraceLog implements Serializable
         $this->paging = [];
 
         for ($log_nbr=1; $log_nbr <= $this->getLogCount(); $log_nbr++) {
-            $file_name = sprintf("%s.%04d", $this->name, $log_nbr);
-            $fp = fopen($file_name, 'rb');
+            $name = $this->getLogName($log_nbr);
+            $fp = fopen($name, 'rb');
 
             while (!feof($fp)) {
                 $pos = ftell($fp);
@@ -115,11 +115,11 @@ class TraceLog implements Serializable
                 if ($file_no != $last_file_no) {
                     if ($fp) fclose($fp);
 
-                    $file_name = sprintf("%s.%04d", $this->name, $file_no);
-                    $fp = fopen($file_name, 'rb');
+                    $name = $this->getLogName($file_no);
+                    $fp = fopen($name, 'rb');
                     $last_file_no = $file_no;
 
-                    fprintf(STDERR, "Open: %s\n", $file_name);
+                    fprintf(STDERR, "Open: %s\n", $name);
                 }
 
                 fseek($fp, $file_offset, SEEK_SET);
@@ -151,7 +151,7 @@ class TraceLog implements Serializable
 
     public function __toString()
     {
-        $output = sprintf("Name: %s\n", $this->name);
+        $output = sprintf("Name: %s\n", $this->file_name);
         $output.= sprintf("File Count: %d\n", $this->getLogCount());
         $output.= sprintf("paging: %d\n", count($this->paging));
 
