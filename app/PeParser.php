@@ -6,11 +6,10 @@ use Serializable;
 
 class PeParser implements Serializable
 {
-    private $data;
     public $headers;
+    public $file_name;
 
     private $fp;
-    private $name;
 
     private $optMagic;
     private $sections;
@@ -31,18 +30,13 @@ class PeParser implements Serializable
     const sizeof_IMAGE_RESOURCE_DIRECTORY = 0x10;
     const sizeof_IMAGE_EXPORT_DIRECTORY = 0x28;
 
-    public function __construct($name)
+    public function __construct($file_name)
     {
         $this->fp = null;
         $this->optMagic = null;
         $this->sections = [];
-        $this->data = (object) [
-            'headers' => [],
-            'name' => realpath($name)
-        ];
-
-        $this->headers = &$this->data->headers;
-        $this->name = &$this->data->name;
+        $this->headers = [];
+        $this->file_name = realpath($file_name);
     }
 
     public function getHeaderValue($name)
@@ -96,7 +90,7 @@ class PeParser implements Serializable
     public function open()
     {
         if (!isset($this->fp)) {
-            $this->fp = $fp = fopen($this->name, 'rb');
+            $this->fp = $fp = fopen($this->file_name, 'rb');
         }
     }
 
@@ -486,14 +480,17 @@ class PeParser implements Serializable
 
     public function serialize(): string
     {
-        return serialize($this->data);
+        return serialize([
+            'file_name' => $this->file_name,
+            'headers' => $this->headers
+        ]);
     }
 
     public function unserialize($serialized)
     {
-        $this->data = unserialize($serialized);
-        $this->headers = &$this->data->headers;
-        $this->name = &$this->data->name;
+        $data = unserialize($serialized);
+        $this->file_name = $data['file_name'];
+        $this->headers = $data['headers'];
     }
 
     public function __toString()

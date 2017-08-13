@@ -13,14 +13,15 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
      */
     public function up()
     {
-        Schema::create('basic_blocks', function(Blueprint $table)
+        Schema::create('blocks', function(Blueprint $table)
         {
             $table->integer('id')->primary();
-            $table->integer('end');
-            $table->integer('load_module_id');
+            $table->integer('end')->index();
+            $table->integer('module_id')->index();
+            $table->integer('subroutine_id')->nullable()->index();
         });
 
-        Schema::create('load_modules', function(Blueprint $table)
+        Schema::create('modules', function(Blueprint $table)
         {
             $table->integer('id')->primary();
             $table->integer('entry');
@@ -29,12 +30,20 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
             $table->string('path');
         });
 
-        Schema::create('import_symbols', function(Blueprint $table)
+        Schema::create('symbols', function(Blueprint $table)
         {
             $table->integer('id')->primary();
-            $table->integer('load_module_id');
+            $table->integer('module_id')->index();
             $table->string('name');
             $table->integer('ordinal');
+        });
+
+        Schema::create('subroutines', function(Blueprint $table)
+        {
+            $table->integer('id')->primary();
+            $table->integer('end');
+            $table->integer('module_id')->index();
+            $table->string('name');
         });
     }
 
@@ -45,8 +54,9 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('basic_blocks');
-        Schema::dropIfExists('load_modules');
-        Schema::dropIfExists('import_symbol');
+        Schema::dropIfExists('blocks');
+        Schema::dropIfExists('modules');
+        Schema::dropIfExists('symbols');
+        Schema::dropIfExists('subroutines');
     }
 }

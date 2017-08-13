@@ -7,7 +7,11 @@ use Serializable;
 
 class BbAnalyzer implements Serializable
 {
-    public $fname;
+    public $function_blocks;
+
+    public $file_name;
+    public $name_exe;
+    public $name_exe;
 
     private $data;
 
@@ -17,13 +21,18 @@ class BbAnalyzer implements Serializable
     const XREF_FAKERET = 3;
     const JUMP_MNEMONICS = ['jmp', 'jg', 'jge', 'je', 'jne', 'js', 'jns', 'ja', 'jb', 'jl', 'jle'];
 
-    public function __construct()
+    public function __construct($file_name)
     {
+        $this->file_name = $file_name;
+        $this->path_exe = dirname($file_name);
+        $this->name_exe = basename($file_name);
+
         $this->data = (object) [
             'exgress' => [],
             'ingress' => [],
             'callbacks' => [],
             'log_states' => [],
+            'function_blocks' => [],
         ];
 
         $this->initialize();
@@ -34,26 +43,31 @@ class BbAnalyzer implements Serializable
         $this->capstone = cs_open(CS_ARCH_X86, CS_MODE_32);
         cs_option($this->capstone, CS_OPT_DETAIL, CS_OPT_ON);
 
-        $this->path_exe = dirname(env('APP_EXE'));
-        $this->name_exe = basename(env('APP_EXE'));
+        $this->trace_log = TraceLog::open($this->path_exe . DIRECTORY_SEPARATOR . $this->name_exe);
 
-        $this->fname_pe_parser = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.pe_parser.dump';
-        $this->fname_trace_log = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.trace_log.dump';
-        $this->fname = self::makeDumpName();
+        //$this->fname_pe_parser = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.pe_parser.dump';
+        //$this->fname_trace_log = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.trace_log.dump';
+
+        $this->function_blocks = &$this->data->function_blocks;
 
         $this->open();
     }
 
-    public function getName()
+    public static function restore()
     {
-        return $this->name_exe;
+        $fname = self::makeDumpName();
+
+        if (file_exists($fname)) {
+            $bb_analyzer = unserialize(file_get_contents($fname));
+            if ($bb_analyzer instanceof BbAnalyzer) {
+                return $bb_analyzer;
+            }
+        }
     }
 
-    public static function makeDumpName()
+    public function store()
     {
-        $path_exe = dirname(env('APP_EXE'));
-        $name_exe = basename(env('APP_EXE'));
-        return $path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$name_exe.'.bb_analyzer.dump';
+        file_put_contents($this->fname, serialize($this));
     }
 
     public static function string_hex($bytes)
@@ -187,6 +201,57 @@ class BbAnalyzer implements Serializable
 
     }
 
+    protected function saveInfo($o)
+    {
+        foreach(['block_entry', 'block_end', 'symbol_entry',
+            'module_start_ref', 'module_start', 'module_end', 'module_entry',
+            'exception_code', 'exception_address', 'fault_address',
+            'function_entry', 'function_end',
+        ] as $k) {
+            if (isset($o[$k]) && is_string($o[$k]) && strpos($o[$k], '0x') === 0) {
+                $o[$k] = hexdec($o[$k]);
+            }
+        }
+
+        if (isset($o['module_start'])) {
+            $this->modules[ $o['module_start'] ] = $o;
+        } elseif (isset($o['block_entry'])) {
+            $this->blocks[ $o['block_entry'] ] = $o;
+        }
+        elseif (isset($o['symbol_entry'])) {
+            $this->symbols[ $o['symbol_entry'] ] = $o;
+        }
+        elseif (isset($o['exception_code'])) {
+            $this->exceptions[ $o['exception_address'] ] = $o;
+        }
+        elseif (isset($o['import_module_name'])) {
+            $this->imports[ $o['symbol_name'] ] = $o;
+        }
+        elseif (isset($o['function_entry'])) {
+            $this->functions[ $o['function_entry'] ] = $o;
+        }
+        else {
+            fprintf(STDERR, "Bad Info:%s\n", json_encode($o));
+        }
+    }
+
+    public function parseInfo()
+    {
+        $fpath = sprintf("%s.info", $this->name);
+        return (new JsonParser($fpath))->parse(function($o)
+        {
+            $this->saveInfo($o);
+        });
+    }
+
+    public function parseFunc()
+    {
+        $fpath = sprintf("%s.func", $this->name);
+        return (new JsonParser($fpath))->parse(function($o)
+        {
+            $this->saveInfo($o);
+        });
+    }
     public function getTraceLog()
     {
         return $this->trace_log;
@@ -262,6 +327,12 @@ class BbAnalyzer implements Serializable
             sort($this->function_ranges, SORT_NUMERIC);
         }
 
+        if (!isset($this->block_adjacents)) {
+            $this->block_adjacents = [];
+            foreach($this->trace_log->blocks as $block_id => &$block) {
+                $this->block_adjacents[ $block['block_end'] ] = $block_id;
+            }
+        }
     }
 
     protected function newFunctionByBlock(&$block, $prefix)
@@ -301,6 +372,31 @@ class BbAnalyzer implements Serializable
         return false;
     }
 
+    public function populateFunctionBlocks()
+    {
+        $dirty = false;
+
+        if (!isset($this->data->function_blocks)) {
+            $this->data->function_blocks = [];
+            $dirty = true;
+        }
+
+        foreach($this->trace_log->blocks as $block_id=>$block) {
+            $function_id = $block['function_id'] ?? null;
+            if (!$function_id) continue;
+
+            if (!array_key_exists($function_id, $this->data->function_blocks)) {
+                $this->data->function_blocks[$function_id] = [];
+            }
+            if (!in_array($block_id, $this->data->function_blocks[$function_id])) {
+                $this->data->function_blocks[$function_id][] = $block_id;
+                $dirty = true;
+            }
+        }
+
+        return $dirty;
+    }
+
     protected function assignFunctionByIngress(&$block, $force = false)
     {
         $block_id = $block['block_entry'];
@@ -329,7 +425,14 @@ class BbAnalyzer implements Serializable
                         return true;
                     } else if ($before['jump']->mnemonic == 'ret') {
                         if (!isset($block['function_id'])) {
-                            fprintf(STDERR, "[FuncByIngress-RET] Unknown for %X, with ingress: %X\n", $block_id, $before_id);
+                            $block_adjacent = $this->trace_log->blocks[ $this->block_adjacents[$block_id] ?? null ] ?? null;
+                            if ($block_adjacent && isset($block_adjacent['function_id']) && $block_adjacent['jump']->mnemonic == 'call') {
+                                $block['function_id'] = $block_adjacent['function_id'];
+                                fprintf(STDERR, "[FuncByIngress-RET] %X, with ingress: %X\n", $block_id, $block['function_id']);
+                                return true;
+                            } else {
+                                fprintf(STDERR, "[FuncByIngress-RET] Unknown for %X, with ingress: %X\n", $block_id, $before_id);
+                            }
                         }
                     } else {
                         fprintf(STDERR, "[FuncByIngress-%s] Unknown handle jump\n", $before['jump']->mnemonic);
@@ -493,6 +596,15 @@ class BbAnalyzer implements Serializable
         $insn = $this->disasm($block_id);
         if (! $insn) return;
 
+        foreach($insn as $ins) {
+            $this->print_ins($ins, $detail);
+
+            if ($detail) {
+                $this->print_x86_detail($ins->detail->x86, $detail);
+            }
+            fprintf(STDERR, "\n");
+        }
+
         $block = $this->trace_log->blocks[$block_id];
         if (isset($block['function_id'])) {
             $function_id = $block['function_id'];
@@ -530,7 +642,7 @@ class BbAnalyzer implements Serializable
                 fprintf(STDERR, "- exgress: %X (%d), symbol: %s\n", $ingress, $code, $ex_block['symbol_name']);
             }
         }
-        fprintf(STDERR, "callback: %d\n", $this->data->callbacks[$block_id] ?? null);
+        //fprintf(STDERR, "callback: %d\n", $this->data->callbacks[$block_id] ?? null);
     }
 
     protected function calculateStack($last_block_id, $block_id, &$stacks)
@@ -720,55 +832,57 @@ class BbAnalyzer implements Serializable
         }
     }
 
-    public function serialize(): string
+    public function getBlock($id, $detail = true)
     {
-        return serialize($this->data);
-    }
+        $block = null;
 
-    public function unserialize($serialized)
-    {
-        $this->data = unserialize($serialized);
+        if (array_key_exists($id, $this->trace_log->blocks)) {
+            $block = $this->trace_log->blocks[$id];
+            $block['id'] = $id;
+            $block['type'] = 'block';
+            $block['function'] = $this->trace_log->functions[ $block['function_id'] ?? null ] ?? null;
 
-        $this->initialize();
-    }
-
-    public static function restore()
-    {
-        $fname = self::makeDumpName();
-
-        if (file_exists($fname)) {
-            $bb_analyzer = unserialize(file_get_contents($fname));
-            if ($bb_analyzer instanceof BbAnalyzer) {
-                return $bb_analyzer;
+            if ($detail) {
+                $block['disasm'] = $this->disasm($id);
             }
         }
-    }
-
-    public function store()
-    {
-        file_put_contents($this->fname, serialize($this));
-    }
-
-    public function getBlock($id)
-    {
-        $block = $this->trace_log->blocks[$id] ?? null;
+        if (array_key_exists($id, $this->trace_log->symbols)) {
+            $block = $this->trace_log->symbols[$id];
+            $block['id'] = $id;
+            $block['type'] = 'symbol';
+        }
 
         if (!$block) return;
+        if (!$detail) return $block;
 
-        $ingress = $this->data->ingress[$id] ?? null;
-        $exgress = $this->data->exgress[$id] ?? null;
-        $function = $this->trace_log->functions[ $block['function_id'] ?? null ] ?? null;
+        $ingress = $this->data->ingress[$id] ?? [];
+        $exgress = $this->data->exgress[$id] ?? [];
 
-        $data = array_merge($block, [
-            'id' => (int)$id,
-            'type' => 'block',
-            'ingress' => $ingress,
-            'exgress' => $exgress,
-            'function' => $function,
-            'disasm' => $this->disasm($id)
-        ]);
+        $block['ingress'] = array_map(function($in_id, $xref) {
+            $in = $this->getBlock($in_id, false);
+            $in['xref'] = $xref;
+            return $in;
+        }, array_keys($ingress), $ingress);
 
-        return $data;
+        $block['exgress'] = array_map(function($ex_id, $xref) {
+            $ex = $this->getBlock($ex_id, false);
+            $ex['xref'] = $xref;
+            return $ex;
+        }, array_keys($exgress), $exgress);
+        return $block;
+    }
+
+    public function getFunction($id)
+    {
+        if (array_key_exists($id, $this->trace_log->functions)) {
+            $block = $this->trace_log->functions[$id];
+            $block['id'] = $id;
+            $block['type'] = 'function';
+            $block['blocks'] = array_map(function($block_id) {
+                return $this->getBlock($block_id, false);
+            }, $this->data->function_blocks[$id] ?? []);
+            return $block;
+        }
     }
 
     public function experiment()

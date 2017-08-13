@@ -22,10 +22,10 @@ class Analyze extends Command
         $dirty |= $anal->doAssignJumpAndCallbacks($force);
         $dirty |= $anal->doAssignFunction($force);
 
-
         if ($this->option('replay')) {
             $dirty |= $anal->doAssignXref();
         }
+        $dirty |= $anal->populateFunctionBlocks();
 
         if ($dirty) {
             fprintf(STDERR, "Saving trace log.\n");

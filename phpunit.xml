@@ -24,7 +24,7 @@
     </filter>
     <php>
         <env name="APP_ENV" value="testing"/>
-        <env name=" DB_DATABASE" value="bbtrace_test"/>
+        <env name="DB_DATABASE" value="bbtrace_test"/>
         <env name="CACHE_DRIVER" value="array"/>
     </php>
 </phpunit>

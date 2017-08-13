@@ -10,8 +10,11 @@ import Typography from 'material-ui/Typography';
 import IconButton from 'material-ui/IconButton';
 import MenuIcon from 'material-ui-icons/Menu';
 import BlockInfo from './BlockInfo';
+import FunctionInfo from './FunctionInfo';
 import { orangeAvatar } from './colors';
 import Avatar from 'material-ui/Avatar';
+import ListBlocks from './ListBlocks';
+import ListFunctions from './ListFunctions';
 
 const sprintf = require('sprintf-js').sprintf;
 
@@ -25,8 +28,16 @@ class Root extends React.Component {
     this.handlePrevClick = this.handlePrevClick.bind(this);
     this.handleRightOpen = this.handleRightOpen.bind(this);
     this.handleRightClose = this.handleRightClose.bind(this);
+    this.handleMenuClick = this.handleMenuClick.bind(this);
+    this.handleFunctionClick = this.handleFunctionClick.bind(this);
+    this.handleFunctionStepperClick = this.handleFunctionStepperClick.bind(this);
     this.state = {
       blocks: [],
+      functions: {
+        items: [],
+        steps: 0,
+        activeStep: 0,
+      },
       info: {
         type: null,
       },
@@ -36,15 +47,24 @@ class Root extends React.Component {
       open: {
         right: false,
       },
+      activePage: 'blocks',
     };
   }
 
   componentDidMount() {
     this.appendBlocks(this.state.offset);
+    this.appendFunctions(this.state.functions.activeStep);
   }
 
   handleBlockClick(id) {
     axios.get(`/api/v1/block/${id}`)
+      .then(res => {
+        this.setState({ info: res.data });
+      });
+  }
+
+  handleFunctionClick(id) {
+    axios.get(`/api/v1/function/${id}`)
       .then(res => {
         this.setState({ info: res.data });
       });
@@ -73,6 +93,16 @@ class Root extends React.Component {
     });
   }
 
+  handleMenuClick(item)
+  {
+    this.setState({ activePage: item, info: { type: null } });
+  }
+
+  handleFunctionStepperClick(direction)
+  {
+    this.appendFunctions(this.state.functions.activeStep + direction);
+  }
+
   appendBlocks(offset, limit) {
     axios.get('/api/v1/blocks', {
       params: { offset, limit }
@@ -84,6 +114,18 @@ class Root extends React.Component {
           hasMore: data.hasMore,
           hasPrev: data.hasPrev,
           blocks: data.blocks, // this.state.blocks.concat(data.blocks) 
+        });
+      });
+  }
+
+  appendFunctions(activeStep) {
+    axios.get('/api/v1/functions', {
+      params: { activeStep }
+    })
+      .then(res => {
+        const data = res.data;
+        this.setState({
+          functions: data, // this.state.blocks.concat(data.blocks) 
         });
       });
   }
@@ -118,14 +160,23 @@ class Root extends React.Component {
         </AppBar>
         <Grid container gutter={0}>
           <Grid item xs={3}>
-            <List style={listStyle} dense={true} disablePadding={true}>
+            { this.state.activePage == 'blocks' && <List style={listStyle} dense={true} disablePadding={true}>
               { this.state.hasPrev && <ListButton primary="Prev" onClick={this.handlePrevClick} /> }
               <ListBlocks blocks={this.state.blocks} onClick={this.handleBlockClick} />
               { this.state.hasMore && <ListButton primary="More" onClick={this.handleMoreClick} /> }
-            </List>
+            </List> }
+            { this.state.activePage == 'functions' &&
+              <ListFunctions functions={this.state.functions.items}
+                onClick={this.handleFunctionClick}
+                steps={this.state.functions.steps}
+                activeStep={this.state.functions.activeStep}
+                onStepperClick={this.handleFunctionStepperClick}
+                />
+            }
           </Grid>
           <Grid item xs={9}>
-            { this.state.info.type === 'block' && <BlockInfo info={this.state.info} /> }
+            { this.state.info.type == 'block' && <BlockInfo info={this.state.info} onBlockClick={this.handleBlockClick}/> }
+            { this.state.info.type == 'function' && <FunctionInfo info={this.state.info} onBlockClick={this.handleBlockClick}/> }
           </Grid>
         </Grid>
         <Drawer
@@ -134,7 +185,7 @@ class Root extends React.Component {
           onRequestClose={this.handleRightClose}
           onClick={this.handleRightClose}>
           <List style={menuStyle} disablePadding>
-            <ListMenus />
+            <ListMenus onMenuClick={ this.handleMenuClick }/>
           </List>
         </Drawer>
       </div>
@@ -152,28 +203,24 @@ const smallAvatar = {
   height: 20,
 };
 
-const ListBlocks = ({ blocks, onClick }) => <div>{ blocks.map( (block) =>
-    <ListItem button key={block.id} onClick={() => onClick(block.id)}>
-      <Avatar style={ orangeAvatar }>B</Avatar>
-      <ListItemText primary={sprintf("%X", block.id)}
-        secondary={block.function ? block.function.function_name : '-'} />
-    </ListItem>
-    ) }
-  </div>
-;
-
 const ListButton = ({ primary, onClick }) =>
     <ListItem button onClick={onClick}>
       <ListItemText primary={primary} />
     </ListItem>
 ;
 
-const ListMenus = () => <div>
-    <ListItem button>
+const ListMenus = ({ onMenuClick }) => <div>
+    <ListItem button onClick={ () => onMenuClick('blocks') }>
       <ListItemIcon>
         <StarBorder />
       </ListItemIcon>
       <ListItemText primary="Blocks" />
+    </ListItem>
+    <ListItem button onClick={ () => onMenuClick('functions') }>
+      <ListItemIcon>
+        <StarBorder />
+      </ListItemIcon>
+      <ListItemText primary="Functions" />
     </ListItem>
   </div>
 ;

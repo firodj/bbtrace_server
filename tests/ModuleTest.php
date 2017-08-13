@@ -1,10 +1,10 @@
 <?php
 
-class LoadModuleTest extends TestCase
+class ModuleTest extends TestCase
 {
     public function testCreate()
     {
-        $m = new App\LoadModule;
+        $m = new App\Module;
         $m->id = 0x400000;
         $m->entry = 0x0041e4cf;
         $m->end = 0x00729000;

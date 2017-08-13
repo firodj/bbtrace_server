@@ -13,7 +13,9 @@ class PeParserTest extends TestCase
         $fout = base_path('../logs/psxfin.pe_parser.dump');
         file_put_contents($fout, serialize($pe_parser));
 
-        $pe_parser2 = (new App\BbAnalyzer)->open($fout);
+        $pe_parser2 = unserialize(file_get_contents($fout));
+
+        $this->assertEquals($pe_parser->file_name, $pe_parser2->file_name);
 
         echo $pe_parser2;
     }

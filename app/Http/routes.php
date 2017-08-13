@@ -24,5 +24,7 @@ $app->group(['prefix' => 'api/v1'], function() use ($app)
 {
     $app->get('blocks', 'BlockController@index');
     $app->get('block/{id}', 'BlockController@show');
+    $app->get('functions', 'FunctionController@index');
+    $app->get('function/{id}', 'FunctionController@show');
 });
 

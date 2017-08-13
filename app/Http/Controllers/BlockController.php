@@ -28,8 +28,6 @@ class BlockController extends Controller
         $offset = (int) $request->input('offset', 0);
         if ($offset < 0) $offset = 0;
 
-        $bb_analyzer = app(BbAnalyzer::class);
-
         $blocks = array_map(function($block_id) use ($bb_analyzer) {
             return $bb_analyzer->getBlock($block_id);
         }, array_slice($keys,

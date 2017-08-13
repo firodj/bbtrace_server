@@ -23,7 +23,7 @@ class Disasm extends Command
         if (strpos($block_id, '0x') === 0) {
             $block_id = hexdec($block_id);
         }
-        $anal->disasm($block_id, $detail);
+        $anal->print_disasm($block_id, $detail);
     }
 }
 
