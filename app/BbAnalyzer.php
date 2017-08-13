@@ -3,15 +3,14 @@
 namespace App;
 
 use Exception;
-use Serializable;
 
-class BbAnalyzer implements Serializable
+class BbAnalyzer
 {
     public $function_blocks;
 
     public $file_name;
-    public $name_exe;
-    public $name_exe;
+    public $trace_log;
+    public $pe_parser;
 
     private $data;
 
@@ -23,17 +22,7 @@ class BbAnalyzer implements Serializable
 
     public function __construct($file_name)
     {
-        $this->file_name = $file_name;
-        $this->path_exe = dirname($file_name);
-        $this->name_exe = basename($file_name);
-
-        $this->data = (object) [
-            'exgress' => [],
-            'ingress' => [],
-            'callbacks' => [],
-            'log_states' => [],
-            'function_blocks' => [],
-        ];
+        $this->file_name = realpath($file_name);
 
         $this->initialize();
     }
@@ -43,162 +32,56 @@ class BbAnalyzer implements Serializable
         $this->capstone = cs_open(CS_ARCH_X86, CS_MODE_32);
         cs_option($this->capstone, CS_OPT_DETAIL, CS_OPT_ON);
 
-        $this->trace_log = TraceLog::open($this->path_exe . DIRECTORY_SEPARATOR . $this->name_exe);
-
-        //$this->fname_pe_parser = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.pe_parser.dump';
-        //$this->fname_trace_log = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.trace_log.dump';
-
-        $this->function_blocks = &$this->data->function_blocks;
-
-        $this->open();
+        $this->openTraceLog();
+        $this->openPeParser();
     }
 
-    public static function restore()
+    public function openTraceLog()
     {
-        $fname = self::makeDumpName();
-
+        $fname = bbtrace_name($this->file_name, 'trace_log.dump');
         if (file_exists($fname)) {
-            $bb_analyzer = unserialize(file_get_contents($fname));
-            if ($bb_analyzer instanceof BbAnalyzer) {
-                return $bb_analyzer;
-            }
+            $this->trace_log = unserialize(file_get_contents($fname));
+            fprintf(STDERR, "Load TraceLog: $fname\n");
+            return;
         }
+
+        $this->trace_log = new TraceLog($this->file_name);
+        $this->trace_log->buildPaging();
+        file_put_contents($fname, serialize($this->trace_log));
+        fprintf(STDERR, "New TraceLog: $fname\n");
     }
 
-    public function store()
+    public function openPeParser()
     {
-        file_put_contents($this->fname, serialize($this));
+        $fname = bbtrace_name($this->file_name, 'pe_parser.dump');
+        if (file_exists($fname)) {
+            $this->pe_parser = unserialize(file_get_contents($fname));
+            fprintf(STDERR, "Load PeParser: $fname\n");
+            return;
+        }
+
+        $this->pe_parser = new PeParser($this->file_name);
+        $this->pe_parser->parsePe();
+        file_put_contents($fname, serialize($this->pe_parser));
+        fprintf(STDERR, "New PeParser: $fname\n");
     }
 
-    public static function string_hex($bytes)
+    public function parseInfo()
     {
-        if (is_string($bytes)) {
-            $bytes = unpack('C*', $bytes);
-        }
-        return implode(" ",
-            array_map(function($x) {
-                return is_int($x) ? sprintf("0x%02x", $x) : $x;
-                },
-                $bytes
-            )
-        );
+        $fpath = bbtrace_name($this->file_name, "info");
+        return (new JsonParser($fpath))->parse(function($o)
+        {
+            $this->saveInfo($o);
+        });
     }
 
-    public static function print_ins($ins, $detail)
+    public function parseFunc()
     {
-        printf("%X: %34s | %-10s", $ins->address, self::string_hex($ins->bytes), $ins->mnemonic);
-        if ($ins->op_str) printf(" %s", $ins->op_str);
-
-        if ($detail) {
-            if (count($ins->detail->regs_read)) {
-                printf("\tregisters read: %s\n", implode(" ", $ins->detail->regs_read));
-            }
-            if (count($ins->detail->regs_write)) {
-                printf("\tregisters modified: %s\n", implode(" ", $ins->detail->regs_write));
-            }
-            if (count($ins->detail->groups)) {
-                printf("\tinstructions groups: %s\n",
-                    implode(" ", $ins->detail->groups));
-            }
-        }
-    }
-
-    public static function print_x86_detail($x86)
-    {
-        if ($x86->prefix) {
-            printf("\tprefix: %s\n", self::string_hex($x86->prefix));
-        }
-        printf("\topcode: %s\n", self::string_hex($x86->opcode));
-
-        printf("\trex: 0x%x\n", $x86->rex);
-
-        printf("\taddr_size: %u\n", $x86->addr_size);
-        printf("\tmodrm: 0x%x\n", $x86->modrm);
-        printf("\tdisp: 0x%x\n", $x86->disp);
-
-        if ($x86->sib) {
-            printf("\tsib: 0x%x\n", $x86->sib);
-            if ($x86->sib_base)
-                printf("\t\tsib_base: %s\n", $x86->sib_base);
-            if ($x86->sib_index)
-                printf("\t\tsib_index: %s\n", $x86->sib_index);
-            if ($x86->sib_scale)
-                printf("\t\tsib_scale: %d\n", $x86->sib_scale);
-        }
-
-        // XOP code condition
-        if ($x86->xop_cc) {
-            printf("\tsse_cc: %u\n", $x86->xop_cc);
-        }
-
-        // SSE code condition
-        if ($x86->sse_cc) {
-            printf("\tsse_cc: %u\n", $x86->sse_cc);
-        }
-
-        // AVX code condition
-        if ($x86->avx_cc) {
-            printf("\tavx_cc: %u\n", $x86->avx_cc);
-        }
-
-        // AVX Suppress All Exception
-        if ($x86->avx_sae) {
-            printf("\tavx_sae: %u\n", $x86->avx_sae);
-        }
-
-        // AVX Rounding Mode
-        if ($x86->avx_rm) {
-            printf("\tavx_rm: %u\n", $x86->avx_rm);
-        }
-
-        printf("\teflags:\n");
-        foreach($x86->eflags as $ops => $flags) {
-            if ($flags) {
-                printf("\t\t%s: %s\n", $ops, implode(' ', $flags));
-            }
-        }
-
-        printf("\top_count: %u\n", count($x86->operands));
-        foreach ($x86->operands as $i => $op) {
-            switch($op->type) {
-                case 'reg': // X86_OP_REG
-                    printf("\t\toperands[%u].type: reg = %s\n", $i, $op->reg);
-                    break;
-                case 'imm': // X86_OP_IMM
-                    printf("\t\toperands[%u].type: imm = 0x%x\n", $i, $op->imm);
-                    break;
-                case 'mem': // X86_OP_MEM
-                    printf("\t\toperands[%u].type: mem\n", $i);
-                    if ($op->mem->segment)
-                        printf("\t\t\toperands[%u].mem.segment: reg = %s\n", $i, $op->mem->segment);
-                    if ($op->mem->base)
-                        printf("\t\t\toperands[%u].mem.base: reg = %s\n", $i, $op->mem->base);
-                    if ($op->mem->index)
-                        printf("\t\t\toperands[%u].mem.index: reg = %s\n", $i, $op->mem->index);
-                    if ($op->mem->scale != 1)
-                        printf("\t\t\toperands[%u].mem.scale: %u\n", $i, $op->mem->scale);
-                    if ($op->mem->disp != 0)
-                        printf("\t\t\toperands[%u].mem.disp: 0x%x\n", $i, $op->mem->disp);
-                    break;
-                default:
-                    break;
-            }
-
-            // AVX broadcast type
-            if ($op->avx_bcast)
-                printf("\t\toperands[%u].avx_bcast: %u\n", $i, $op->avx_bcast);
-
-            // AVX zero opmask {z}
-            if ($op->avx_zero_opmask)
-                printf("\t\toperands[%u].avx_zero_opmask: TRUE\n", $i);
-
-            printf("\t\toperands[%u].size: %u\n", $i, $op->size);
-
-            if ($op->access) {
-                printf("\t\toperands[%u].access: %s\n", $i, implode(' | ', $op->access));
-            }
-        }
-
+        $fpath = bbtrace_name($this->file_name, "func");
+        return (new JsonParser($fpath))->parse(function($o)
+        {
+            $this->saveInfo($o);
+        });
     }
 
     protected function saveInfo($o)
@@ -232,78 +115,6 @@ class BbAnalyzer implements Serializable
         }
         else {
             fprintf(STDERR, "Bad Info:%s\n", json_encode($o));
-        }
-    }
-
-    public function parseInfo()
-    {
-        $fpath = sprintf("%s.info", $this->name);
-        return (new JsonParser($fpath))->parse(function($o)
-        {
-            $this->saveInfo($o);
-        });
-    }
-
-    public function parseFunc()
-    {
-        $fpath = sprintf("%s.func", $this->name);
-        return (new JsonParser($fpath))->parse(function($o)
-        {
-            $this->saveInfo($o);
-        });
-    }
-    public function getTraceLog()
-    {
-        return $this->trace_log;
-    }
-
-    public function getPeParser()
-    {
-        return $this->pe_parser;
-    }
-
-    public function open()
-    {
-        if (file_exists($this->fname_pe_parser)) {
-            $data = unserialize(file_get_contents($this->fname_pe_parser));
-            if ($data instanceof PeParser) {
-                $this->pe_parser = $data;
-            }
-        }
-
-        if (!isset($this->pe_parser)) {
-            $this->pe_parser = new PeParser(env('APP_EXE'));
-            $this->pe_parser->parsePe();
-            file_put_contents($this->fname_pe_parser, serialize($this->pe_parser));
-        }
-
-        $this->pe_parser->open();
-
-        if (file_exists($this->fname_trace_log)) {
-            $data = unserialize(file_get_contents($this->fname_trace_log));
-            if ($data instanceof TraceLog) {
-                $this->trace_log = $data;
-            }
-        }
-
-        if (! isset($this->trace_log)) {
-            $info = $this->path_exe.DIRECTORY_SEPARATOR.'bbtrace.'.$this->name_exe.'.log.info';
-
-            $this->trace_log = new TraceLog($info);
-            $this->trace_log->parseInfo();
-            $this->trace_log->parseFunc();
-            $this->trace_log->buildPaging();
-
-            file_put_contents($this->fname_trace_log, serialize($this->trace_log));
-        }
-    }
-
-    public function save($data)
-    {
-        if ($data instanceof PeParser) {
-            file_put_contents($this->fname_pe_parser, serialize($data));
-        } else if ($data instanceof TraceLog) {
-            file_put_contents($this->fname_trace_log, serialize($data));
         }
     }
 
