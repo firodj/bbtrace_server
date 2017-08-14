@@ -47,6 +47,7 @@ class PeParser implements Serializable
             $header[0], $header[1]
         ];
 
+        $this->open();
         fseek($this->fp, $header[0], SEEK_SET);
         $data = fread($this->fp, $header[1]);
         if ($header[2] == 'u*') return iconv('UTF-16LE', 'UTF-8', $data);

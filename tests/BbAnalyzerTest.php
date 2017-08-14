@@ -9,9 +9,30 @@ class BbAnalyzerTest extends TestCase
      *
      * @return void
      */
-    public function testExample()
+    public function setUp()
     {
-        $anal = new BbAnalyzer(env('APP_EXE'));
-        
+        parent::setUp();
+
+        $this->anal = new BbAnalyzer(env('APP_EXE'));
+    }
+
+    public function testParseInfo()
+    {
+        $this->anal->parseInfo();
+    }
+
+    public function testParseFunc()
+    {
+        $this->anal->parseFunc();
+    }
+
+    public function testDisasmBlock()
+    {
+        $block = $this->anal->getStartBlock();
+
+        $inst = $this->anal->disasmBlock($block);
+
+        foreach($inst as $ins) {
+        }
     }
 }

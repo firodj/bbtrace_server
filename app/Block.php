@@ -12,6 +12,9 @@ class Block extends Model
      * @var bool
      */
     public $timestamps = false;
+    public $incrementing = false;
+
+    protected $guarded = [];
 
     public function module()
     {
@@ -21,6 +24,16 @@ class Block extends Model
     public function subroutine()
     {
         return $this->belongsTo(Subroutine::class);
+    }
+
+    public function getSize()
+    {
+        return $this->end - $this->id;
+    }
+
+    public function getRva()
+    {
+        return $this->id - $this->module_id;
     }
 }
 

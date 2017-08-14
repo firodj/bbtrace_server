@@ -2,6 +2,8 @@
 
 namespace App;
 
+use Closure;
+
 class JsonParser
 {
     private $file_name;

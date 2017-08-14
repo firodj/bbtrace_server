@@ -12,6 +12,9 @@ class BbAnalyzer
     public $trace_log;
     public $pe_parser;
 
+    public $imports; // FIXME: unused
+    public $exceptions; // FIXME: unused
+
     private $data;
 
     const XREF_TRACE = 0;
@@ -23,6 +26,7 @@ class BbAnalyzer
     public function __construct($file_name)
     {
         $this->file_name = realpath($file_name);
+        $this->imports = [];
 
         $this->initialize();
     }
@@ -68,7 +72,7 @@ class BbAnalyzer
 
     public function parseInfo()
     {
-        $fpath = bbtrace_name($this->file_name, "info");
+        $fpath = bbtrace_name($this->file_name, 'log.info');
         return (new JsonParser($fpath))->parse(function($o)
         {
             $this->saveInfo($o);
@@ -77,7 +81,7 @@ class BbAnalyzer
 
     public function parseFunc()
     {
-        $fpath = bbtrace_name($this->file_name, "func");
+        $fpath = bbtrace_name($this->file_name, 'log.func');
         return (new JsonParser($fpath))->parse(function($o)
         {
             $this->saveInfo($o);
@@ -97,21 +101,45 @@ class BbAnalyzer
         }
 
         if (isset($o['module_start'])) {
-            $this->modules[ $o['module_start'] ] = $o;
+            Module::firstOrCreate([
+                'id' => $o['module_start'],
+            ], [
+                'entry' => $o['module_entry'],
+                'end' => $o['module_end'],
+                'name' => $o['module_name'],
+                'path' => $o['module_path'],
+            ]);
         } elseif (isset($o['block_entry'])) {
-            $this->blocks[ $o['block_entry'] ] = $o;
+            Block::firstOrCreate([
+                'id' => $o['block_entry'],
+            ], [
+                'end' => $o['block_end'],
+                'module_id' => $o['module_start_ref'],
+            ]);
         }
         elseif (isset($o['symbol_entry'])) {
-            $this->symbols[ $o['symbol_entry'] ] = $o;
+            Symbol::firstOrCreate([
+                'id' => $o['symbol_entry'],
+            ], [
+                'name' => $o['symbol_name'],
+                'ordinal' => $o['symbol_ordinal'],
+                'module_id' => $o['module_start_ref'],
+            ]);
+        }
+        elseif (isset($o['function_entry'])) {
+            Subroutine::firstOrCreate([
+                'id' => $o['function_entry'],
+            ], [
+                'name' => $o['function_name'],
+                'end' => $o['function_end'],
+                'module_id' => $o['module_start_ref'],
+            ]);
         }
         elseif (isset($o['exception_code'])) {
             $this->exceptions[ $o['exception_address'] ] = $o;
         }
         elseif (isset($o['import_module_name'])) {
             $this->imports[ $o['symbol_name'] ] = $o;
-        }
-        elseif (isset($o['function_entry'])) {
-            $this->functions[ $o['function_entry'] ] = $o;
         }
         else {
             fprintf(STDERR, "Bad Info:%s\n", json_encode($o));
@@ -309,6 +337,23 @@ class BbAnalyzer
         }
 
         return $dirty;
+    }
+
+    public function disasmBlock(Block $block)
+    {
+        $data = $this->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
+        $insn = cs_disasm($this->capstone, $data, $block->id);
+        return $insn;
+    }
+
+    /**
+     * @return Block | null
+     */
+    public function getStartBlock()
+    {
+        $base = $this->pe_parser->getHeaderValue('opt.ImageBase');
+        $ep = $this->pe_parser->getHeaderValue('opt.AddressOfEntryPoint');
+        return Block::find($base + $ep);
     }
 
     public function doAssignJumpAndCallbacks($force)
