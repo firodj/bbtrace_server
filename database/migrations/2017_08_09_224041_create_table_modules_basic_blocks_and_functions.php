@@ -19,6 +19,9 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
             $table->integer('end')->index();
             $table->integer('module_id')->index();
             $table->integer('subroutine_id')->nullable()->index();
+            $table->integer('jump_addr');
+            $table->string('jump_mnemonic');
+            $table->integer('jump_operand')->nullable();
         });
 
         Schema::create('modules', function(Blueprint $table)

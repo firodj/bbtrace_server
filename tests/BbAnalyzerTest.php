@@ -32,7 +32,11 @@ class BbAnalyzerTest extends TestCase
 
         $inst = $this->anal->disasmBlock($block);
 
-        foreach($inst as $ins) {
-        }
+        $this->assertEquals(1, count($inst));
+    }
+
+    public function testAnalyzeAllBlocks()
+    {
+        $this->anal->analyzeAllBlocks();
     }
 }

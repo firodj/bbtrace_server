@@ -356,74 +356,59 @@ class BbAnalyzer
         return Block::find($base + $ep);
     }
 
-    public function doAssignJumpAndCallbacks($force)
+    public function analyzeBlock(Block $block)
     {
-        $img_base = $this->pe_parser->getHeaderValue('opt.ImageBase');
+        $mem_refs = [];
 
-        $dirty = false;
+        $inst = $this->disasmBlock($block);
 
-        foreach($this->trace_log->blocks as $block_id => &$block) {
-            if (isset($block['jump']) && isset($block['callbacks'])) {
-                if (!$force) continue;
-            }
+        foreach($inst as $ins) {
+            if (!in_array($ins->mnemonic, ['mov', 'push'])) continue;
 
-            $ref = $block['module_start_ref'];
+            $x86 = &$ins->detail->x86;
+            foreach($x86->operands as $op) {
+                if ($op->type === 'imm' && !in_array('write', $op->access)) {
 
-            if ($ref != $img_base) continue;
+                    $rva = $this->pe_parser->va2rva($op->imm);
+                    if (isset($mem_refs[$op->imm])) continue;
 
-            $start = $block['block_entry'];
-            $end = $block['block_end'];
-            $rva = $start - $ref;
-            $sz = $end - $start;
+                    $s = $this->pe_parser->findSection($rva);
 
-            $data = $this->pe_parser->getBinaryByRva($rva, $sz);
-            $insn = cs_disasm($this->capstone, $data, $start);
-
-            $callbacks = [];
-
-            foreach ($insn as $ins) {
-                if (!in_array($ins->mnemonic, ['mov', 'push'])) continue;
-
-                $x86 = &$ins->detail->x86;
-                foreach($x86->operands as $op) {
-                    if ($op->type === 'imm' && !in_array('write', $op->access)) {
-
-                        $rva = $this->pe_parser->va2rva($op->imm);
-                        $s = $this->pe_parser->findSection($rva);
-
-                        if (isset($s)) {
-                            $section = $this->pe_parser->getSection($s->n);
-                            if (array_key_exists($op->imm, $this->trace_log->blocks)) {
-                                $callbacks[ $op->imm ] = self::XREF_TRACE;
-                            }
+                    if (isset($s)) {
+                        $section = $this->pe_parser->getSection($s->n);
+                        $dest = Block::find($op->imm);
+                        if ($dest) {
+                            $mem_refs[$op->imm] = self::XREF_TRACE;
                         }
                     }
                 }
             }
-
-            $block['callbacks'] = $callbacks;
-
-            // $ins = end($insn);
-
-            $imm = count($ins->detail->x86->operands) > 0 && $ins->detail->x86->operands[0]->type == 'imm' ? $ins->detail->x86->operands[0]->imm : null;
-
-            $block['jump'] = (object)[
-                'address' => $ins->address,
-                'mnemonic' => $ins->mnemonic,
-                'target' => $imm,
-                //'code' => pack('C*', ...$ins->bytes)
-            ];
-
-            $this->trace_log->callbacks += $block['callbacks'];
-            $dirty = true;
-
-            $stop = $ins->address + count($ins->bytes);
-            if ($stop != $end) {
-                throw new Exception('Wrong disassmble!');
-            }
         }
 
-        return $dirty;
+        $imm = count($ins->detail->x86->operands) > 0 && $ins->detail->x86->operands[0]->type == 'imm' ? $ins->detail->x86->operands[0]->imm : null;
+
+        $block->jump_addr     = $ins->address;
+        $block->jump_mnemonic = $ins->mnemonic;
+        $block->jump_operand  = $imm;
+
+        $stop = $ins->address + count($ins->bytes);
+
+        if ($stop != $block->end) {
+            throw new Exception('Wrong disassmble!');
+        }
+
+        $block->save();
+    }
+
+    public function analyzeAllBlocks()
+    {
+        $base = $this->pe_parser->getHeaderValue('opt.ImageBase');
+
+        foreach(Block::get() as $block) {
+            if ($block->module_id != $base) continue;
+
+            $this->analyzeBlock($block);
+        }
     }
 
     public function disasm($block_id)
