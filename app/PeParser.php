@@ -226,6 +226,25 @@ class PeParser implements Serializable
         }
     }
 
+    public function sectionFlags($characteristics)
+    {
+        $flags = [];
+        if ($characteristics & 0x00000020) $flags[] = 'CODE';
+        if ($characteristics & 0x00000040) $flags[] = 'INITIALIZED_DATA';
+        if ($characteristics & 0x00000080) $flags[] = 'UNINITIALIZED_DATA';
+        if ($characteristics & 0x00004000) $flags[] = 'NO_DEFER_SPEC_EXC';
+        if ($characteristics & 0x00008000) $flags[] = 'GPREL';
+        if ($characteristics & 0x01000000) $flags[] = 'LNK_NRELOC_OVFL';
+        if ($characteristics & 0x02000000) $flags[] = 'MEM_DISCARDABLE';
+        if ($characteristics & 0x04000000) $flags[] = 'MEM_NOT_CACHED';
+        if ($characteristics & 0x08000000) $flags[] = 'MEM_NOT_PAGED';
+        if ($characteristics & 0x10000000) $flags[] = 'MEM_SHARED';
+        if ($characteristics & 0x20000000) $flags[] = 'MEM_EXECUTE';
+        if ($characteristics & 0x40000000) $flags[] = 'MEM_READ';
+        if ($characteristics & 0x80000000) $flags[] = 'MEM_WRITE';
+        return $flags;
+    }
+
     public function findSection($rva)
     {
         if ($rva < 0) return;
@@ -238,6 +257,9 @@ class PeParser implements Serializable
                     'rva'  => $this->getHeaderValue(sprintf('secs@%d.VirtualAddress', $n)),
                     'raw'  => $this->getHeaderValue(sprintf('secs@%d.PointerToRawData', $n)),
                     'name' => $this->getHeaderValue(sprintf('secs@%d.Name', $n)),
+                    'flags' => $this->sectionFlags(
+                        $this->getHeaderValue(sprintf('secs@%d.Characteristics', $n))
+                    )
                 ];
             }
         }

@@ -26,6 +26,11 @@ class Block extends Model
         return $this->belongsTo(Subroutine::class);
     }
 
+    public function references()
+    {
+        return $this->hasMany(Reference::class);
+    }
+
     public function getSize()
     {
         return $this->end - $this->id;

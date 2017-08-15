@@ -21,7 +21,7 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
             $table->integer('subroutine_id')->nullable()->index();
             $table->integer('jump_addr');
             $table->string('jump_mnemonic');
-            $table->integer('jump_operand')->nullable();
+            $table->integer('jump_dest')->nullable();
         });
 
         Schema::create('modules', function(Blueprint $table)
@@ -48,6 +48,15 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
             $table->integer('module_id')->index();
             $table->string('name');
         });
+
+        Schema::create('references', function(Blueprint $table)
+        {
+            $table->integer('id');
+            $table->integer('ref_addr');
+            $table->primary(['id', 'ref_addr']);
+            $table->string('kind', 1);
+        });
+
     }
 
     /**
@@ -61,5 +70,6 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
         Schema::dropIfExists('modules');
         Schema::dropIfExists('symbols');
         Schema::dropIfExists('subroutines');
+        Schema::dropIfExists('references');
     }
 }

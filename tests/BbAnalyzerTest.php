@@ -39,4 +39,20 @@ class BbAnalyzerTest extends TestCase
     {
         $this->anal->analyzeAllBlocks();
     }
+
+    public function testAssignSubroutines()
+    {
+        $this->anal->assignSubroutines();
+    }
+
+    public function testBuildIngress()
+    {
+        $this->anal->loadAll();
+        $states = null;
+        foreach ($this->anal->trace_log->parseLog() as $pkt_no => $chunk) {
+            $this->anal->storeStates($pkt_no, $states);
+            $states = $this->anal->buildIngress($chunk, $states);
+            $this->anal->storeIngress();
+        }
+    }
 }
