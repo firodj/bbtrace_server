@@ -25,5 +25,15 @@ class Flow extends Model
     {
         return $this->belongsTo(Symbol::class, 'last_block_id');
     }
+
+    public function block()
+    {
+        return $this->belongsTo(Block::class, 'id');
+    }
+
+    public function symbol()
+    {
+        return $this->belongsTo(Symbol::class, 'id');
+    }
 }
 

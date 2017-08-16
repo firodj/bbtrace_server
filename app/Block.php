@@ -31,6 +31,16 @@ class Block extends Model
         return $this->hasMany(Reference::class);
     }
 
+    public function flows()
+    {
+        return $this->hasMany(Flow::class, 'id');
+    }
+
+    public function nextFlows()
+    {
+        return $this->hasMany(Flow::class, 'last_block_id');
+    }
+
     public function getSize()
     {
         return $this->end - $this->id;

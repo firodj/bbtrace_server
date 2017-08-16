@@ -241,6 +241,12 @@ class BbAnalyzer
         Symbol::get()->each(function ($symbol) {
             $this->symbols[$symbol->id] = (object) $symbol->toArray();
         });
+
+        $this->ingress = [];
+        Ingress::get()->each(function ($flow) {
+            $this->ingress += [$flow->id => []];
+            $this->ingress[$flow->id][$flow->last_block_id] = $flow->xref;
+        });
     }
 
     public function storeStates($pkt_no, $states)
@@ -254,17 +260,37 @@ class BbAnalyzer
                     'last_block_id' => $states->last_block_id[$thread_id],
                     'stacks' => $states->stacks[$thread_id]
                 ]);
+
         }
     }
 
-    public function storeIngress()
+    public function storeFlows(&$states)
     {
-        foreach($this->ingress as $block_id => $last_block_ids) {
-            foreach($last_block_ids as $last_block_id => $xref) {
-                Flow::firstOrCreate(['id' => $block_id, 'last_block_id' => $last_block_id],
-                    ['xref' => $xref]);
+        foreach(array_values($states->flows) as $flows) {
+            foreach($flows as $flow) {
+                Flow::firstOrCreate([
+                        'id' => $flow->block_id,
+                        'last_block_id' => $flow->last_block_id
+                    ],
+                    [
+                        'xref' => $flow->xref
+                    ]
+                );
             }
         }
+
+        $states->flows[] = [];
+    }
+
+    public function prepareStates()
+    {
+        $states = (object)[
+            'last_block_id' => [],
+            'stacks' => [],
+            'flows' => [],
+        ];
+
+        return $states;
     }
 
     public function buildIngress($chunk, $states)
@@ -272,20 +298,9 @@ class BbAnalyzer
         $thread_id = $chunk->header->thread;
         fprintf(STDERR, "Packet #%d thread:%x\n", $chunk->header->pkt_no, $thread_id);
 
-        if (!isset($states)) {
-            $states = (object)[
-                'last_block_id' => [],
-                'stacks' => [],
-            ];
-        }
-
-        if (! array_key_exists($thread_id, $states->last_block_id)) {
-            $states->last_block_id[$thread_id] = null;
-        }
-
-        if (! array_key_exists($thread_id, $states->stacks)) {
-            $states->stacks[$thread_id] = [];
-        }
+        $states->last_block_id += [$thread_id => null];
+        $states->stacks        += [$thread_id => []];
+        $states->flows         += [$thread_id => []];
 
         $data = unpack('V*', $chunk->raw_data);
 
@@ -300,17 +315,32 @@ class BbAnalyzer
                 $this->ingress[$block_id] = [];
             }
 
-            // stacts Trace
-            $xref = $this->calculateStack($last_block_id, $block_id, $states->stacks[$thread_id]);
+            $xref = self::XREF_TRACE;
+            $last_block = $this->blocks[$last_block_id] ?? null;
+            if ($last_block) {
+                if ($last_block->jump_dest == $block_id) { // Jxx taken or call
+                    $xref = self::XREF_EXACT;
+                } else if ($last_block->end == $block_id) { // Jcc not taken
+                    $xref = self::XREF_EXACT;
+                }
+            }
 
             if (!array_key_exists($last_block_id, $this->ingress[$block_id])) {
                 $this->ingress[$block_id][$last_block_id] = $xref;
+                $states->flows[$thread_id][] = (object) [
+                    'block_id' => $block_id,
+                    'last_block_id' => $last_block_id,
+                    'xref' => $xref
+                ];
             }
         }
 
         return $states;
     }
 
+    /**
+     * DEPRECATED
+     */
     protected function calculateStack($last_block_id, $block_id, &$stacks)
     {
         // stacts Trace
@@ -446,26 +476,147 @@ class BbAnalyzer
         }
     }
 
-    protected function newFunctionByBlock(&$block, $prefix)
+    protected function createSubroutineByBlock($block, $prefix)
     {
-        $block_id = $block['block_entry'];
+        $subroutine = Subroutine::firstOrCreate([
+            'id' => $block->id,
+        ], [
+            'end' => $block->end,
+            'module_id' => $block->module_id,
+            'name' => $prefix . '_' . dechex($block->id),
+        ]);
 
-        if (!array_key_exists($block_id, $this->trace_log->functions)) {
-            $function = [
-                'function_entry' => $block_id,
-                'function_end' => $block['block_end'], // fake it
-                'function_name' => $prefix . '_' . dechex($block_id),
-            ];
+        fprintf(STDERR, "New Function %X: %s\n", $subroutine->id, $subroutine->name);
 
-            $this->trace_log->functions[$block_id] = $function;
+        return $subroutine;
+    }
 
-            fprintf(STDERR, "New Function %X: %s\n", $block_id, $function['function_name']);
+    protected function assignSubroutineByFlow($block)
+    {
+        $pending_blocks = [$block];
+        $subroutine_id = $block->subroutine_id;
 
-            $this->function_ranges[] = $block_id;
-            sort($this->function_ranges, SORT_NUMERIC);
+        while ($block = array_shift($pending_blocks)) {
+            if ($block->jump_mnemonic[0] == 'j') { // jxx
+                $block->nextFlows->each(function($next_flow) use (&$pending_blocks, $subroutine_id) {
+                    if ($next_flow->block) {
+                        if ($next_flow->block->subroutine_id) {
+                            fprintf(STDERR, "Block %X Jump to known %X (%X)\n", $next_flow->last_block_id, $next_flow->block->id, $next_flow->block->subroutine_id);
+                        } else {
+                            $pending_blocks[] = $next_flow->block;
 
-            return true;
+                            $next_flow->block->subroutine_id = $subroutine_id;
+                            $next_flow->block->save();
+
+                            // Update cache.
+                            $this->blocks[$next_flow->block->id] = (object) $next_flow->block->toArray();
+
+                            fprintf(STDERR, "Assign by jump: %X (%X)\n", $next_flow->block->id, $subroutine_id);
+                        }
+                    }
+                });
+            }
         }
+    }
+
+    public function assignSubroutines()
+    {
+        // Filter by Subroutine Ranges
+        Subroutine::get()->each(function($subroutine) {
+            Block::whereBetween('id', [$subroutine->id, $subroutine->end-1])->update(['subroutine_id' => $subroutine->id]);
+        });
+
+        // Call
+        Block::whereNull('subroutine_id')->get()->each(function($block) {
+            $block->flows->each(function($flow) use(&$block) {
+                if ($flow->lastBlock && $flow->lastBlock->subroutine_id &&
+                    $flow->lastBlock->jump_mnemonic == 'call') {
+                    $subroutine = $this->createSubroutineByBlock($block, 'proc');
+                    $block->subroutine_id = $subroutine->id;
+                    $block->save();
+
+                    // Update cache.
+                    $this->blocks[$block->id] = (object)$block->toArray();
+
+                    $this->assignSubroutineByFlow($block);
+                }
+            });
+        });
+
+        // Ret
+        Block::whereNull('subroutine_id')->get()->each(function($block) {
+            $block->flows->each(function($flow) use(&$block) {
+                if ($flow->lastBlock && $flow->lastBlock->jump_mnemonic == 'ret') {
+                    if ($flow->lastBlock->subroutine_id) {
+                        $before_block = Block::where('end', $block->id)->first();
+                        if ($before_block && $before_block->subroutine_id) {
+                            $block->subroutine_id = $before_block->subroutine_id;
+                            $block->save();
+
+                            fprintf(STDERR, "Assign by return %X (%X)\n", $block->id, $block->subroutine_id);
+
+                            // Update cache.
+                            $this->blocks[$block->id] = (object)$block->toArray();
+
+                            $this->assignSubroutineByFlow($block);
+                        }
+                    } else {
+                        if (($block->id & 0xf) == 0) { // align 10h
+                            $subroutine = $this->createSubroutineByBlock($block, 'callback');
+                            $block->subroutine_id = $subroutine->id;
+                            $block->save();
+
+                            fprintf(STDERR, "Assign by callback %X (%X)\n", $block->id, $block->subroutine_id);
+
+                            // Update cache.
+                            $this->blocks[$block->id] = (object)$block->toArray();
+
+                            $this->assignSubroutineByFlow($block);
+                        }
+                    }
+                }
+            });
+        });
+
+        // Jxx
+        Block::whereNull('subroutine_id')->get()->each(function($block) {
+            $block->flows->each(function($flow) use(&$block) {
+                if ($flow->lastBlock && $flow->lastBlock->subroutine_id &&
+                    $flow->lastBlock->jump_mnemonic[0] == 'j') {
+                        $block->subroutine_id = $flow->lastBlock->subroutine_id;
+                        $block->save();
+
+                        fprintf(STDERR, "Assign by jump %X (%X)\n", $block->id, $block->subroutine_id);
+
+                        // Update cache.
+                        $this->blocks[$block->id] = (object)$block->toArray();
+
+                        $this->assignSubroutineByFlow($block);
+                    }
+            });
+        });
+
+        // Symbol
+        Block::whereNull('subroutine_id')->get()->each(function($block) {
+            $block->flows->each(function($flow) use(&$block) {
+                if ($flow->lastSymbol) {
+                    $before_block = Block::where('end', $block->id)->first();
+                    if ($before_block) {
+                        if ($before_block->subroutine_id) {
+                            $block->subroutine_id = $before_block->subroutine_id;
+                            $block->save();
+
+                            fprintf(STDERR, "Assign by last symbol (return) %X (%X)\n", $block->id, $block->subroutine_id);
+
+                            // Update cache.
+                            $this->blocks[$block->id] = (object)$block->toArray();
+
+                            $this->assignSubroutineByFlow($block);
+                        }
+                    }
+                }
+            });
+        });
     }
 
     protected function assignFunctionByCallback(&$block, $force = false)
@@ -552,13 +703,6 @@ class BbAnalyzer
                 }
             }
         }
-    }
-
-    public function assignSubroutines()
-    {
-        Subroutine::get()->each(function($subroutine) {
-            Block::whereBetween('id', [$subroutine->id, $subroutine->end-1])->update(['subroutine_id' => $subroutine->id]);
-        });
     }
 
     public function doAssignFunction($force = false)
