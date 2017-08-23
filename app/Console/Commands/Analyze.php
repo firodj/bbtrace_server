@@ -8,34 +8,36 @@ use App\BbAnalyzer;
 class Analyze extends Command
 {
     protected $signature = 'analyze
-                            {--replay : Replay traces to build Xrefs}
-                            {--force : Force rerun basic analyze}';
+                            {--basic}
+                            {--function}
+                            {--flow}';
     protected $description = 'Analyze';
+
+    private $anal;
 
     public function handle()
     {
-        $anal = app(BbAnalyzer::class);
+        $this->anal = app(BbAnalyzer::class);
 
-        $dirty = false;
-        $force = $this->option('force');
+        if ($this->option('basic')) {
+            $this->anal->parseInfo();
+            $this->anal->parseFunc();
 
-        $dirty |= $anal->doAssignJumpAndCallbacks($force);
-        $dirty |= $anal->doAssignFunction($force);
-
-        if ($this->option('replay')) {
-            $dirty |= $anal->doAssignXref();
-        }
-        $dirty |= $anal->populateFunctionBlocks();
-
-        if ($dirty) {
-            fprintf(STDERR, "Saving trace log.\n");
-            $anal->save($anal->trace_log);
-
-            fprintf(STDERR, "Save analysis.\n");
-            $anal->store();
+            $this->anal->analyzeAllBlocks();
         }
 
-        //$anal->experiment();
+        if ($this->option('flow')) {
+            $this->anal->loadAll();
+            $states = $this->anal->prepareStates();
+            foreach ($this->anal->trace_log->parseLog() as $pkt_no => $chunk) {
+                $states = $this->anal->buildIngress($chunk, $states);
+                $this->anal->storeFlows($states);
+            }
+        }
+
+        if ($this->option('function')) {
+            $this->anal->assignSubroutines();
+        }
     }
 }
 

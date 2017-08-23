@@ -50,5 +50,18 @@ class Block extends Model
     {
         return $this->id - $this->module_id;
     }
+
+    public function getDisplayName()
+    {
+        if ($this->subroutine) {
+            $name = $this->subroutine->name;
+            if ($this->id != $this->subroutine_id) {
+                $ofs = dechex(abs($this->id - $this->subroutine_id));
+                $name .= ($this->id < $this->subroutine_id ? '-' : '+' ) . $ofs;
+            }
+            return $name;
+        }
+        return dechex($id);
+    }
 }
 

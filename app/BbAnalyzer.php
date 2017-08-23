@@ -34,6 +34,11 @@ class BbAnalyzer
         $this->initialize();
     }
 
+    public function getName()
+    {
+        return basename($this->file_name);
+    }
+
     public function initialize()
     {
         $this->capstone = cs_open(CS_ARCH_X86, CS_MODE_32);
@@ -48,14 +53,14 @@ class BbAnalyzer
         $fname = bbtrace_name($this->file_name, 'trace_log.dump');
         if (file_exists($fname)) {
             $this->trace_log = unserialize(file_get_contents($fname));
-            fprintf(STDERR, "Load TraceLog: $fname\n");
+            app('log')->debug("Load TraceLog: $fname\n");
             return;
         }
 
         $this->trace_log = new TraceLog($this->file_name);
         $this->trace_log->buildPaging();
         file_put_contents($fname, serialize($this->trace_log));
-        fprintf(STDERR, "New TraceLog: $fname\n");
+        app('log')->debug("New TraceLog: $fname\n");
     }
 
     public function openPeParser()
@@ -63,14 +68,14 @@ class BbAnalyzer
         $fname = bbtrace_name($this->file_name, 'pe_parser.dump');
         if (file_exists($fname)) {
             $this->pe_parser = unserialize(file_get_contents($fname));
-            fprintf(STDERR, "Load PeParser: $fname\n");
+            app('log')->debug("Load PeParser: $fname\n");
             return;
         }
 
         $this->pe_parser = new PeParser($this->file_name);
         $this->pe_parser->parsePe();
         file_put_contents($fname, serialize($this->pe_parser));
-        fprintf(STDERR, "New PeParser: $fname\n");
+        app('log')->debug("New PeParser: $fname\n");
     }
 
     public function parseInfo()
@@ -243,7 +248,7 @@ class BbAnalyzer
         });
 
         $this->ingress = [];
-        Ingress::get()->each(function ($flow) {
+        Flow::get()->each(function ($flow) {
             $this->ingress += [$flow->id => []];
             $this->ingress[$flow->id][$flow->last_block_id] = $flow->xref;
         });
@@ -448,6 +453,9 @@ class BbAnalyzer
         return self::XREF_TRACE;
     }
 
+    /**
+     * DEPRECATED
+     */
     public function buildRanges()
     {
         if (!isset($this->headers)) {
@@ -547,32 +555,29 @@ class BbAnalyzer
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
                 if ($flow->lastBlock && $flow->lastBlock->jump_mnemonic == 'ret') {
-                    if ($flow->lastBlock->subroutine_id) {
-                        $before_block = Block::where('end', $block->id)->first();
-                        if ($before_block && $before_block->subroutine_id) {
-                            $block->subroutine_id = $before_block->subroutine_id;
-                            $block->save();
+                    $before_block = Block::where('end', $block->id)->first();
+                    if ($before_block && $before_block->subroutine_id) {
+                        $block->subroutine_id = $before_block->subroutine_id;
+                        $block->save();
 
-                            fprintf(STDERR, "Assign by return %X (%X)\n", $block->id, $block->subroutine_id);
+                        fprintf(STDERR, "Assign by return %X (%X)\n", $block->id, $block->subroutine_id);
 
-                            // Update cache.
-                            $this->blocks[$block->id] = (object)$block->toArray();
+                        // Update cache.
+                        $this->blocks[$block->id] = (object)$block->toArray();
 
-                            $this->assignSubroutineByFlow($block);
-                        }
-                    } else {
-                        if (($block->id & 0xf) == 0) { // align 10h
-                            $subroutine = $this->createSubroutineByBlock($block, 'callback');
-                            $block->subroutine_id = $subroutine->id;
-                            $block->save();
+                        $this->assignSubroutineByFlow($block);
+                    } else if (($block->id & 0xf) == 0) { // align 10h
+                        // GUEST!
+                        $subroutine = $this->createSubroutineByBlock($block, 'callback');
+                        $block->subroutine_id = $subroutine->id;
+                        $block->save();
 
-                            fprintf(STDERR, "Assign by callback %X (%X)\n", $block->id, $block->subroutine_id);
+                        fprintf(STDERR, "Assign by callback %X (%X)\n", $block->id, $block->subroutine_id);
 
-                            // Update cache.
-                            $this->blocks[$block->id] = (object)$block->toArray();
+                        // Update cache.
+                        $this->blocks[$block->id] = (object)$block->toArray();
 
-                            $this->assignSubroutineByFlow($block);
-                        }
+                        $this->assignSubroutineByFlow($block);
                     }
                 }
             });
@@ -617,124 +622,6 @@ class BbAnalyzer
                 }
             });
         });
-    }
-
-    protected function assignFunctionByCallback(&$block, $force = false)
-    {
-        $block_id = $block['block_entry'];
-
-        // check via callback
-        if (array_key_exists($block_id, $this->data->callbacks)) {
-            $block['function_id'] = $block_id;
-            $this->newFunctionByBlock($block, 'callback');
-            fprintf(STDERR, "Assign %X func: %X\n", $block_id, $block['function_id']);
-            return true;
-        }
-
-        return false;
-    }
-
-    protected function assignFunctionByIngress(&$block, $force = false)
-    {
-        $block_id = $block['block_entry'];
-
-        // check by ingress (via jmp and jcxx)
-        if (array_key_exists($block_id, $this->ingress)) {
-
-            $befores = array_keys( $this->ingress[$block_id] );
-
-            foreach($befores as $before_id) {
-                if (isset($this->trace_log->blocks[$before_id])) {
-                    $before = $this->trace_log->blocks[$before_id];
-
-                    if (in_array($before['jump']->mnemonic, self::JUMP_MNEMONICS)) {
-                        if (isset($before['function_id'])) {
-                            $block['function_id'] = $before['function_id'];
-                            fprintf(STDERR, "[FuncByIngress-Jxx] %X func: %X\n", $block_id, $block['function_id']);
-                            return true;
-                            break;
-                        }
-                    }
-                    else if ($before['jump']->mnemonic == 'call') {
-                        $block['function_id'] = $block_id;
-                        $this->newFunctionByBlock($block, 'proc');
-                        fprintf(STDERR, "[FuncByIngress-CALL] %X func: %X\n", $block_id, $block['function_id']);
-                        return true;
-                    } else if ($before['jump']->mnemonic == 'ret') {
-                        if (!isset($block['function_id'])) {
-                            $block_adjacent = $this->trace_log->blocks[ $this->block_adjacents[$block_id] ?? null ] ?? null;
-                            if ($block_adjacent && isset($block_adjacent['function_id']) && $block_adjacent['jump']->mnemonic == 'call') {
-                                $block['function_id'] = $block_adjacent['function_id'];
-                                fprintf(STDERR, "[FuncByIngress-RET] %X, with ingress: %X\n", $block_id, $block['function_id']);
-                                return true;
-                            } else {
-                                fprintf(STDERR, "[FuncByIngress-RET] Unknown for %X, with ingress: %X\n", $block_id, $before_id);
-                            }
-                        }
-                    } else {
-                        fprintf(STDERR, "[FuncByIngress-%s] Unknown handle jump\n", $before['jump']->mnemonic);
-                    }
-                } else if (isset($this->trace_log->symbols[$before_id])) {
-                    $before = $this->trace_log->symbols[$before_id];
-                    // NOPE:
-                }
-            }
-        }
-    }
-
-    protected function assignFunctionByExgress(&$block, $force)
-    {
-        $block_id = $block['block_entry'];
-        if (array_key_exists($block_id, $this->data->exgress)) {
-
-            $afters = array_keys( $this->data->exgress[$block_id] );
-
-            foreach($afters as $after_id) {
-                if (isset($this->trace_log->blocks[$after_id])) {
-                    $after = $this->trace_log->blocks[$after_id];
-
-                    if (in_array($block['jump']->mnemonic, self::JUMP_MNEMONICS)) {
-                        if (isset($after['function_id'])) {
-                            $block['function_id'] = $after['function_id'];
-                            fprintf(STDERR, "[FuncByExgress] %X func: %X\n", $block_id, $block['function_id']);
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    public function doAssignFunction($force = false)
-    {
-        $this->buildRanges();
-
-        $dirty = false;
-
-        foreach($this->trace_log->blocks as $block_id => &$block) {
-            if (isset($block['function_id'])) {
-                if (!$force) {
-                    continue;
-                }
-            }
-
-            $function_id = NearestValue::array_numeric_sorted_nearest($this->function_ranges,
-                $block_id,
-                NearestValue::ARRAY_NEAREST_LOWER);
-
-            $function = $this->trace_log->functions[$function_id];
-
-            if ($block_id < $function['function_end']) {
-                $dirty = true;
-                $block['function_id'] = $function_id;
-            } else {
-                $dirty |= $this->assignFunctionByCallback($block, $force);
-                $dirty |= $this->assignFunctionByIngress($block, $force);
-                $dirty |= $this->assignFunctionByExgress($block, $force);
-            }
-        }
-
-        return $dirty;
     }
 
     public function printDisasm(Block $block, $detail)

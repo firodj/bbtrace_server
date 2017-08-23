@@ -17,3 +17,25 @@ body {
 body, html, #app, #app > div{
   height: 100%;
 }
+
+#mainPaper svg {
+  .labels text {
+    pointer-events: none;
+    font: 10px sans-serif;
+  }
+
+  .links line {
+    stroke: gray;
+    stroke-opacity: 0.6;
+  }
+
+  .nodes rect {
+    cursor: pointer;
+    stroke: white;
+    stroke-width: 1px;
+
+    &.selected {
+      stroke: red;
+    }
+  }
+}

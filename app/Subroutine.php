@@ -15,5 +15,10 @@ class Subroutine extends Model
     {
         return $this->belongsTo(Module::class);
     }
+
+    public function blocks()
+    {
+        return $this->hasMany(Block::class);
+    }
 }
 

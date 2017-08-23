@@ -26,5 +26,6 @@ $app->group(['prefix' => 'api/v1'], function() use ($app)
     $app->get('block/{id}', 'BlockController@show');
     $app->get('functions', 'FunctionController@index');
     $app->get('function/{id}', 'FunctionController@show');
+    $app->get('graph', 'GraphController@index');
 });
 

@@ -16,11 +16,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(BbAnalyzer::class, function($app)
         {
-            $bb_analyzer = BbAnalyzer::restore();
-
-            if (! $bb_analyzer) {
-                $bb_analyzer = new BbAnalyzer();
-            }
+            $bb_analyzer = new BbAnalyzer(env('APP_EXE'));
             return $bb_analyzer;
         });
     }
