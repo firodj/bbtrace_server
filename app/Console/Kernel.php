@@ -15,6 +15,8 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Commands\Analyze::class,
         Commands\Disasm::class,
+        Commands\Backup::class,
+        Commands\Restore::class,
     ];
 
     /**

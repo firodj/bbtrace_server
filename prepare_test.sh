@@ -23,6 +23,14 @@ if [[ $? -ne 0 ]] ; then
     exit $?
 fi
 
+DUMPFILE=./storage/dumps/$DB_DATABASE.sql
+DUMPFILE=${DUMPFILE/_test/}
+
+echo "Dump File: $DUMPFILE"
+
+if [ -f $DUMPFILE ] ; then
+  mysql -u $DB_USERNAME -h $DB_HOST $DB_DATABASE < $DUMPFILE
+fi
 php artisan migrate -vvv
 
 if [[ $? -ne 0 ]] ; then
