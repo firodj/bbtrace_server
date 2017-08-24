@@ -107,27 +107,42 @@ class GraphBuilder
         if ($isCopy) return;
         $this->markVisit($pending);
 
+        $targets = [];
+
         foreach($subroutine->blocks as $block) {
             foreach($block->nextFlows as $flow) {
                 // skip on ret, need is_bidi.
-                if ($block->jump_mnemonic == 'ret') continue;
+                if ($block->jump_mnemonic == 'ret') {
+                    if ($next = $flow->block) {
+                        if ($next->id != $next->subroutine_id) continue;
+                    } else {
+                        continue;
+                    }
+                }
 
                 if ($next = $flow->block) {
                     if ($next->subroutine_id == $subroutine->id) continue;
+                    if (array_key_exists($next->id, $targets)) continue;
 
                     $this->pendings[] = (object)[
                         'item' => $next->subroutine,
                         'xref' => $flow->xref,
                         'last' => $node->id,
                     ];
+
+                    $targets[ $next->id ] = true;
                 }
 
                 if ($next = $flow->symbol) {
+                    if (array_key_exists($next->id, $targets)) continue;
+
                     $this->pendings[] = (object)[
                         'item' => $next,
                         'xref' => $flow->xref,
                         'last' => $node->id
                     ];
+
+                    $targets[ $next->id ] = true;
                 }
             }
         }
