@@ -25,14 +25,21 @@ body, html, #app, #app > div{
   }
 
   .links line {
-    stroke: gray;
-    stroke-opacity: 0.6;
+    stroke-opacity: 0.7;
+
+    &.selected {
+      stroke: maroon !important;
+    }
   }
 
   .nodes rect {
     cursor: pointer;
     stroke: white;
     stroke-width: 1px;
+
+    &.is_copy {
+      stroke: gray;
+    }
 
     &.selected {
       stroke: red;

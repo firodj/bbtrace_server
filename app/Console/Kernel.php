@@ -17,6 +17,7 @@ class Kernel extends ConsoleKernel
         Commands\Disasm::class,
         Commands\Backup::class,
         Commands\Restore::class,
+        Commands\Graph::class,
     ];
 
     /**

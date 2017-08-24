@@ -4,31 +4,64 @@ namespace App;
 
 class GraphBuilder
 {
-    private $nodes;
-    private $links;
+    public $visits;
+    public $pendings;
 
-    public function __construct($block)
+    public function __construct()
     {
-        $this->nodes = [];
-        $this->links = [];
-        $this->distinct = 0;
-        $skip = true;
-
-        if(!$block) {
-            $block = app(BbAnalyzer::class)->getStartBlock();
-            $skip = false;
-        }
-
-        if ($block) {
-            $this->pendings = [
-                (object)['item' => $block->subroutine, 'last' => null, 'skip' => $skip]
-            ];
-        }
     }
 
-    public function build(int $stops = -1)
+    public function retrieve($node_id = null, $stops = 3)
     {
-        $this->stops = $stops;
+        $first_node = is_null($node_id) ? GraphNode::first() : GraphNode::findOrFail((int)$node_id);
+
+        $pendings = [$first_node];
+
+        $nodes = [];
+        $links = [];
+
+        while ($node = array_shift($pendings)) {
+            $nodes[] = array_merge($node->toArray(), [
+                'stopped' => $stops == 0 && $node->links->count() > 0,
+            ]);
+
+            if ($stops == 0) continue;
+
+            foreach($node->links as $link) {
+                $links[] = array_merge($link->toArray(), [
+                    'source' => $link->source_id, 'target' => $link->target_id,
+                ]);
+                $pendings[] = $link->target;
+            }
+
+            $stops--;
+        }
+
+        return [
+            'nodes' => $nodes,
+            'links' => $links,
+        ];
+    }
+
+    public function truncate()
+    {
+        app('db')->table(with(new GraphNode)->getTable())->truncate();
+        app('db')->table(with(new GraphLink)->getTable())->truncate();
+    }
+
+    public function build()
+    {
+        $this->truncate();
+
+        $block = app(BbAnalyzer::class)->getStartBlock();
+
+        $this->visits = [];
+        $this->pendings = [
+            (object)[
+                'item' => $block->subroutine,
+                'last' => null,
+            ]
+        ];
 
         while ($pending = array_shift($this->pendings)) {
             if ($pending->item instanceof Subroutine) {
@@ -37,114 +70,114 @@ class GraphBuilder
             if ($pending->item instanceof Symbol) {
                 $this->buildSymbol($pending);
             }
-
-            if ($this->stops == 0) continue;
-            $this->stops--;
         }
     }
 
-    public function data()
+    public function isCopy($pending)
     {
-        return [
-            'nodes' => array_values($this->nodes),
-            'links' => $this->links,
-        ];
+        return array_key_exists($pending->item->id, $this->visits);
     }
 
-    protected function getCurrentId($pending)
+    public function markVisit($pending)
     {
-        if (array_key_exists(dechex($pending->item->id), $this->nodes)) {
-            $this->distinct++;
-            return dechex($pending->item->id) . '#' . $this->distinct;
-        }
-
-        return dechex($pending->item->id);
+        $this->visits[$pending->item->id] = $pending;
     }
 
-    protected function isNotFollow($pending)
+    public function buildSubroutine($pending)
     {
-        return array_key_exists(dechex($pending->item->id), $this->nodes);
-    }
+        $isCopy = $this->isCopy($pending);
 
-    protected function buildSubroutine($pending)
-    {
-        $notFollow = $this->isNotFollow($pending);
-        $currentId  = $this->getCurrentId($pending);
         $subroutine = $pending->item;
 
-        $node = [
-            'id' => $currentId,
-            'label' => $subroutine->name,
-            'kind' => 'subroutine',
-            'stop' => $this->stops == 0,
-        ];
-
-        if (!isset($pending->skip) || !$pending->skip) {
-            $this->nodes[$currentId] = $node;
-        }
+        $node = new GraphNode();
+        $node->subroutine_id = $subroutine->id;
+        $node->label = $subroutine->name;
+        $node->is_copy = $isCopy;
+        $node->is_symbol = false;
+        $node->save();
 
         if ($pending->last) {
-            $this->links[] = [
-                'source' => $pending->last,
-                'target' => $currentId,
-                'xref' => $pending->xref,
-            ];
+            $link = new GraphLink();
+            $link->source_id = $pending->last;
+            $link->target_id = $node->id;
+            $link->xref = $pending->xref;
+            $link->save();
         }
 
-        if ($notFollow) return;
-
-        if ($this->stops == 0) return;
+        if ($isCopy) return;
+        $this->markVisit($pending);
 
         foreach($subroutine->blocks as $block) {
             foreach($block->nextFlows as $flow) {
+                // skip on ret, need is_bidi.
                 if ($block->jump_mnemonic == 'ret') continue;
 
                 if ($next = $flow->block) {
                     if ($next->subroutine_id == $subroutine->id) continue;
-                    $this->pendings[] = (object)['item' => $next->subroutine, 'xref' => $flow->xref, 'last' => $currentId];
+
+                    $this->pendings[] = (object)[
+                        'item' => $next->subroutine,
+                        'xref' => $flow->xref,
+                        'last' => $node->id,
+                    ];
                 }
+
                 if ($next = $flow->symbol) {
-                    $this->pendings[] = (object)['item' => $next, 'xref' => $flow->xref, 'last' => $currentId];
+                    $this->pendings[] = (object)[
+                        'item' => $next,
+                        'xref' => $flow->xref,
+                        'last' => $node->id
+                    ];
                 }
             }
         }
+
+        fprintf(STDERR, "Subroutine #{$node->id} {$node->label}\n");
     }
 
     protected function buildSymbol($pending)
     {
-        $notFollow = $this->isNotFollow($pending);
-        $currentId  = $this->getCurrentId($pending);
+        $isCopy = $this->isCopy($pending);
+
         $symbol = $pending->item;
 
-        $this->nodes[$currentId] = [
-            'id' => $currentId,
-            'label' => $symbol->getDisplayName(),
-            'kind' => 'symbol',
-        ];
-
+        $node = new GraphNode();
+        $node->subroutine_id = $symbol->id;
+        $node->label = $symbol->getDisplayName();
+        $node->is_copy = $isCopy;
+        $node->is_symbol = true;
+        $node->save();
 
         if ($pending->last) {
-            $this->links[] = [
-                'source' => $pending->last,
-                'target' => $currentId,
-                'xref' => $pending->xref,
-            ];
+            $link = new GraphLink();
+            $link->source_id = $pending->last;
+            $link->target_id = $node->id;
+            $link->xref = $pending->xref;
+            $link->save();
         }
 
-        if ($notFollow) return;
-        if ($this->stops == 0) return;
-
-        $nexts = [];
+        if ($isCopy) return;
+        $this->markVisit($pending);
 
         foreach($symbol->nextFlows as $flow) {
             if ($next = $flow->block) {
                 if ($next->subroutine_id != $next->id) continue;
 
-                $this->pendings[] = (object)['item' => $next->subroutine, 'xref' => $flow->xref, 'last' => $currentId];
+                $this->pendings[] = (object)[
+                    'item' => $next->subroutine,
+                    'xref' => $flow->xref,
+                    'last' => $node->id
+                ];
             }
             if ($next = $flow->symbol) {
-                $this->pendings[] = (object)['item' => $next, 'xref' => $flow->xref, 'last' => $currentId];
+                $this->pendings[] = (object)[
+                    'item' => $next,
+                    'xref' => $flow->xref,
+                    'last' => $node->id
+                ];
             }
         }
+
+        fprintf(STDERR, "Symbol #{$node->id} {$node->label}\n");
     }
 }
