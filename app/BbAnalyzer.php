@@ -135,13 +135,21 @@ class BbAnalyzer
             ]);
         }
         elseif (isset($o['function_entry'])) {
-            Subroutine::firstOrCreate([
-                'id' => $o['function_entry'],
-            ], [
-                'name' => $o['function_name'],
-                'end' => $o['function_end'],
-                'module_id' => $o['module_start_ref'],
-            ]);
+            $subroutine = Subroutine::find($o['function_entry']);
+            if ($subroutine) {
+                $subroutine->name = $o['function_name'];
+            } else {
+                $subroutine = new Subroutine;
+                $subroutine->fill([
+                    'id' => $o['function_entry'],
+                    'name' => $o['function_name'],
+                    'end' => $o['function_end'],
+                    'module_id' => $o['module_start_ref'],
+                ]);
+            }
+            if (!$subroutine->save()) {
+                ;
+            }
         }
         elseif (isset($o['exception_code'])) {
             $this->exceptions[ $o['exception_address'] ] = $o;

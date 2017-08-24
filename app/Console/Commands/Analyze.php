@@ -8,6 +8,7 @@ use App\BbAnalyzer;
 class Analyze extends Command
 {
     protected $signature = 'analyze
+                            {--ida}
                             {--basic}
                             {--function}
                             {--flow}';
@@ -19,9 +20,12 @@ class Analyze extends Command
     {
         $this->anal = app(BbAnalyzer::class);
 
+        if ($this->option('ida')) {
+            $this->anal->parseFunc();
+        }
+
         if ($this->option('basic')) {
             $this->anal->parseInfo();
-            $this->anal->parseFunc();
 
             $this->anal->analyzeAllBlocks();
         }
