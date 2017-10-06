@@ -1,0 +1,13 @@
+[ignore]
+<PROJECT_ROOT>/server/node_modules/.*
+
+[include]
+
+[libs]
+
+[lints]
+
+[options]
+
+[version]
+0.55.0

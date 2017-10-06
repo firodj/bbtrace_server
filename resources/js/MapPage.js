@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Component } from 'react';
 
 import Button from 'material-ui/Button';
 import Grid from 'material-ui/Grid';
@@ -27,7 +27,13 @@ const sprintf = require('sprintf-js').sprintf;
 
 import axios from 'axios';
 
-class Root extends React.Component {
+class MapPage extends Component {
+
+  static defaultProps = {
+    limit: 100,
+    title: window.env.name,
+  };
+
   constructor(props) {
     super(props);
     this.handleBlockClick = this.handleBlockClick.bind(this);
@@ -381,14 +387,15 @@ class Root extends React.Component {
 
     return (
         <div style={paperStyle} id="mainPaper">
+          <svg width="100%" height="100%"></svg>
           <Drawer
-            docked={true}
             anchor="right"
-            open={this.state.open.right}>
+            type="persistent"
+            open={this.state.open.right}
+          >
             <Paper style={{width: 400}}>
             </Paper>
           </Drawer>
-          <svg width="100%" height="100%"></svg>
         </div>
     );
   }
@@ -456,11 +463,6 @@ class Root extends React.Component {
   }
 }
 
-Root.defaultProps = {
-  limit: 100,
-  title: window.env.name,
-};
-
 const smallAvatar = {
   width: 20,
   height: 20,
@@ -488,4 +490,4 @@ const ListMenus = ({ onMenuClick }) => <div>
   </div>
 ;
 
-export default Root;
+export default MapPage;

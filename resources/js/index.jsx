@@ -1,6 +1,6 @@
 import React from 'react';
 import {render} from 'react-dom';
-import Root from './Root';
+import App from './App';
 
 import injectTapEventPlugin from 'react-tap-event-plugin';
 
@@ -13,11 +13,6 @@ import 'typeface-roboto';
 
 // Sytylesheets
 require('../scss/index.scss');
-
-// Components
-const App = () => (
-    <Root />
-);
 
 render(
   <App />,

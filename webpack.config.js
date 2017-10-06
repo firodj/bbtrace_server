@@ -20,7 +20,8 @@ module.exports = {
         exclude: /node_modules/,
         include: path.resolve(__dirname, 'resources/js'),
         query: {
-          presets: ['env', 'react']
+          presets: ['env', 'react', 'flow'],
+          plugins: ['transform-object-rest-spread', 'transform-class-properties']
         }
       },
       {

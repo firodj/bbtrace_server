@@ -4,7 +4,7 @@ use Laravel\Lumen\Testing\DatabaseTransactions;
 
 class TestCase extends Laravel\Lumen\Testing\TestCase
 {
-    use DatabaseTransactions;
+    //use DatabaseTransactions;
 
     /**
      * Creates the application.
