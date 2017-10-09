@@ -11,21 +11,21 @@
 |
 */
 
-$app->get('/', function () use ($app) {
+$app->group(['prefix' => 'api/v1'], function() use ($app)
+{
+    $app->get('blocks', 'BlockController@index');
+    $app->get('block/{id}', 'BlockController@show');
+    $app->get('subroutines', 'SubroutineController@index');
+    $app->get('subroutine/{id}', 'SubroutineController@show');
+    $app->get('graph', 'GraphController@index');
+});
+
+$app->get('/{path:.*}', function () use ($app) {
     $anal = $app->make(App\BbAnalyzer::class);
     $env = [
         'name' => $anal->getName(),
         'version' => $app->version(),
     ];
     return view('greeting', ['env' => $env]);
-});
-
-$app->group(['prefix' => 'api/v1'], function() use ($app)
-{
-    $app->get('blocks', 'BlockController@index');
-    $app->get('block/{id}', 'BlockController@show');
-    $app->get('functions', 'FunctionController@index');
-    $app->get('function/{id}', 'FunctionController@show');
-    $app->get('graph', 'GraphController@index');
 });
 

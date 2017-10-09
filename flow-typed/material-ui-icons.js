@@ -91,6 +91,9 @@ declare module 'material-ui-icons/Theaters' {
 declare module 'material-ui-icons/Receipt' {
   declare module.exports: any;
 }
+declare module 'material-ui-icons/StarBorder' {
+  declare module.exports: any;
+}
 declare module 'material-ui-icons/Search' {
   declare module.exports: any;
 }

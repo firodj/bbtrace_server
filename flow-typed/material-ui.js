@@ -1,6 +1,9 @@
 declare module 'material-ui/AppBar' {
   declare module.exports: any;
 }
+declare module 'material-ui/Avatar' {
+  declare module.exports: any;
+}
 declare module 'material-ui/Button' {
   declare module.exports: any;
 }
@@ -8,6 +11,9 @@ declare module 'material-ui/Checkbox' {
   declare module.exports: any;
 }
 declare module 'material-ui/Dialog' {
+  declare module.exports: any;
+}
+declare module 'material-ui/Drawer' {
   declare module.exports: any;
 }
 declare module 'material-ui/Form' {

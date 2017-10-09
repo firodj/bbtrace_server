@@ -3,29 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\BbAnalyzer;
+use App\Subroutine;
 use Illuminate\Http\Request;
 use Log;
-use App\Block;
 
-class BlockController extends Controller
+class SubroutineController extends Controller
 {
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
     public function __construct()
     {
-        //
     }
 
     public function index(Request $request)
     {
-        return Block::paginate();
+        return Subroutine::has('blocks')->paginate(100);
     }
 
     public function show(Request $request, $id)
     {
-        return Block::findOrFail($id);
+        return Subroutine::with('blocks')->with('module')->findOrFail($id);
     }
 }

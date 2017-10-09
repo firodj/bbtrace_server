@@ -4,7 +4,7 @@ import Grid from 'material-ui/Grid';
 import List, { ListItem, ListItemIcon, ListItemText } from 'material-ui/List';
 import ListBlocks from './ListBlocks';
 
-class FunctionInfo extends Component {
+class SubroutineInfo extends Component {
   constructor(props) {
     super(props);
   }
@@ -13,9 +13,10 @@ class FunctionInfo extends Component {
   }
 
   render() {
+    console.log(this.props);
     return (
       <Paper style={{padding: '16px'}}>
-        <Grid container gutter={0}>
+        <Grid container spacing={0}>
           <Grid item xs={4}>
             <List disablePadding>
               <ListBlocks blocks={this.props.info.blocks} onClick={this.props.onBlockClick} />
@@ -31,4 +32,4 @@ class FunctionInfo extends Component {
 }
 
 
-export default FunctionInfo;
+export default SubroutineInfo;
