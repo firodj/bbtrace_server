@@ -54,3 +54,31 @@ body {
     }
   }
 }
+
+.basic-block {
+  font: 10px sans-serif;
+  border: 1px black solid;
+  display: inline-block;
+  position: absolute;
+  width: 240px;
+}
+
+.instruction-row {
+  &_title {
+    background-color: red;
+    width: 100%;
+    color: white;
+  }
+}
+
+.instruction-cell {
+  display: table-cell;
+
+  &_small {
+    width: 60px;
+  }
+}
+
+.handle {
+  cursor: move;
+}

@@ -16,6 +16,8 @@ import * as d3 from 'd3';
 import * as _ from 'lodash';
 import { bboxCollide } from 'd3-bboxCollide';
 
+import SubroutineInfo from './SubroutineInfo';
+
 const sprintf = require('sprintf-js').sprintf;
 
 import axios from 'axios';
@@ -27,7 +29,7 @@ class MapPage extends Component {
 
     this.state = {
       info: {
-        type: null,
+        id: 0
       },
       open: {
         right: false,
@@ -36,6 +38,7 @@ class MapPage extends Component {
         nodes: [],
         links: [],
       },
+      subroutine_id: 0
     };
 
     this.drawing = {};
@@ -105,11 +108,22 @@ class MapPage extends Component {
           const t_id = typeof l.target === 'object' ? l.target.id : l.target;
           return (s_id == d.id || t_id == d.id);
         });
-      }
 
-      that.setState({
-        open: { right: selected }
-      });
+        if (d.is_symbol == 0) {
+          that.setState({
+            subroutine_id: d.subroutine_id,
+            open: { right: true }
+          });
+        } else {
+          that.setState({
+            open: { right: false }
+          });
+        }
+      } else {
+        that.setState({
+          open: { right: false }
+        });
+      }
     };
 
     var zoom = d3.zoom()
@@ -270,6 +284,7 @@ class MapPage extends Component {
       });
   }
 
+
   render() {
     const paperStyle = {
       width: '100%',
@@ -282,17 +297,16 @@ class MapPage extends Component {
     };
 
     return (
-        <div style={paperStyle} id="mainPaper">
-          <svg width="100%" height="100%"></svg>
-          <Drawer
-            anchor="right"
-            type="persistent"
-            open={this.state.open.right}
-          >
-            <Paper style={{width: 400}}>
-            </Paper>
-          </Drawer>
-        </div>
+      <div style={paperStyle} id="mainPaper">
+        <svg width="100%" height="100%"></svg>
+        <Drawer
+          anchor="right"
+          type="persistent"
+          open={this.state.open.right}
+        >
+          <SubroutineInfo subroutine_id={ this.state.subroutine_id } />
+        </Drawer>
+      </div>
     );
   }
 }

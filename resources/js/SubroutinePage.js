@@ -62,7 +62,6 @@ class SubroutinePage extends Component<Props, State> {
     hasPrev: false,
     hasMore: true,
     offset: 0,
-    blocks: [],
     subroutines: {
       items: [],
       steps: 0,
@@ -109,11 +108,6 @@ class SubroutinePage extends Component<Props, State> {
         </AppBar>
         <Grid container spacing={0}>
           <Grid item xs={3}>
-            { this.state.activePage == 'blocks' && <List style={listStyle} dense={true} disablePadding={true}>
-              { this.state.hasPrev && <ListButton primary="Prev" onClick={this.handlePrevClick} /> }
-              <ListBlocks blocks={this.state.blocks} onClick={this.handleBlockClick} />
-              { this.state.hasMore && <ListButton primary="More" onClick={this.handleMoreClick} /> }
-            </List> }
             { this.state.activePage == 'subroutines' &&
               <ListSubroutines subroutines={this.state.subroutines.items}
                 onClick={this.handleSubroutineClick}
@@ -125,7 +119,7 @@ class SubroutinePage extends Component<Props, State> {
           </Grid>
           <Grid item xs={9}>
             { this.state.info.type == 'block' && <BlockInfo info={this.state.info} onBlockClick={this.handleBlockClick}/> }
-            { this.state.info.id != 0 && <SubroutineInfo info={this.state.info} onBlockClick={this.handleBlockClick}/> }
+            { this.state.info.id != 0 && <SubroutineInfo subroutine_id={this.state.info.id} onBlockClick={this.handleBlockClick}/> }
           </Grid>
         </Grid>
         <Drawer
@@ -139,21 +133,6 @@ class SubroutinePage extends Component<Props, State> {
         </Drawer>
       </div>
     );
-  }
-
-  appendBlocks(offset: number, limit: number) {
-    axios.get('/api/v1/blocks', {
-      params: { offset, limit }
-    })
-      .then(res => {
-        const data = res.data;
-        this.setState({
-          offset: data.from,
-          hasMore: data.current_page < data.last_page,
-          hasPrev: data.current_page > 1,
-          blocks: data.data, // this.state.blocks.concat(data.blocks) 
-        });
-      });
   }
 
   appendSubroutines(activeStep: number) {
@@ -172,9 +151,8 @@ class SubroutinePage extends Component<Props, State> {
     });
   }
 
-
   handleMenuClick = (item: string) => {
-    this.setState({ activePage: item, info: { type: null } });
+    this.setState({ activePage: item });
   }
 
   handleRightClose = () => {
@@ -187,18 +165,6 @@ class SubroutinePage extends Component<Props, State> {
     this.setState({
       open: { right: true }
     });
-  }
-
-  handleMoreClick = () => {
-    if (this.state.hasMore) {
-      this.appendBlocks(this.state.offset+ this.props.limit, this.props.limit);
-    }
-  }
-
-  handlePrevClick = ()  => {
-    if (this.state.hasPrev) {
-      this.appendBlocks(this.state.offset - this.props.limit, this.props.limit);
-    }
   }
 
   handleBlockClick = (id: number) => {

@@ -1,4 +1,4 @@
-declare module 'd3-format' {
+declare module 'sprintf-js' {
   declare module.exports: any;
 }
 

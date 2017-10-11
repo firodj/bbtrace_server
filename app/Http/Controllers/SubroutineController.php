@@ -20,6 +20,14 @@ class SubroutineController extends Controller
 
     public function show(Request $request, $id)
     {
-        return Subroutine::with('blocks')->with('module')->findOrFail($id);
+        $subroutine = Subroutine::with('blocks')->with('blocks.flows')->with('module')->findOrFail($id);
+
+        $result = $subroutine->toArray();
+        $subroutine->blocks = $subroutine->blocks->map(function ($block) {
+            $block->insn = app(BbAnalyzer::class)->disasmBlock($block);
+            return $block;
+        });
+
+        return $subroutine;
     }
 }
