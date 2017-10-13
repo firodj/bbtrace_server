@@ -1,6 +1,6 @@
 <?php
 
-use App\BbAnalyzer;
+use App\Services\BbAnalyzer;
 
 class BbAnalyzerTest extends TestCase
 {
@@ -45,14 +45,10 @@ class BbAnalyzerTest extends TestCase
         $this->anal->assignSubroutines();
     }
 
-    public function testBuildIngress()
+    public function testParseFlowLog()
     {
         $this->anal->loadAll();
-        $states = $this->anal->prepareStates();
-        foreach ($this->anal->trace_log->parseLog() as $pkt_no => $chunk) {
-            //$this->anal->storeStates($pkt_no, $states);
-            $states = $this->anal->buildIngress($chunk, $states);
-            $this->anal->storeFlows($states);
-        }
+        $this->anal->parseFlowLog();
     }
+
 }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\NearestValue;
+
 class NearestValueTest extends TestCase
 {
     public function testNearestDefault()
@@ -8,11 +10,11 @@ class NearestValueTest extends TestCase
         sort($array, SORT_NUMERIC);
 
         $this->assertEquals(1000,
-            App\NearestValue::array_numeric_sorted_nearest($array, 1337)
+            NearestValue::array_numeric_sorted_nearest($array, 1337)
         );
 
         $this->assertEquals(2000,
-            App\NearestValue::array_numeric_sorted_nearest($array, 1773)
+            NearestValue::array_numeric_sorted_nearest($array, 1773)
         );
     }
 
@@ -22,13 +24,13 @@ class NearestValueTest extends TestCase
         sort($array, SORT_NUMERIC);
 
         $this->assertEquals(1000,
-            App\NearestValue::array_numeric_sorted_nearest($array, 1337,
-                App\NearestValue::ARRAY_NEAREST_LOWER)
+            NearestValue::array_numeric_sorted_nearest($array, 1337,
+                NearestValue::ARRAY_NEAREST_LOWER)
         );
 
         $this->assertEquals(1000,
-            App\NearestValue::array_numeric_sorted_nearest($array, 1773,
-                App\NearestValue::ARRAY_NEAREST_LOWER)
+            NearestValue::array_numeric_sorted_nearest($array, 1773,
+                NearestValue::ARRAY_NEAREST_LOWER)
         );
     }
 
@@ -38,13 +40,13 @@ class NearestValueTest extends TestCase
         sort($array, SORT_NUMERIC);
 
         $this->assertEquals(2000,
-            App\NearestValue::array_numeric_sorted_nearest($array, 1337,
-                App\NearestValue::ARRAY_NEAREST_HIGHER)
+            NearestValue::array_numeric_sorted_nearest($array, 1337,
+                NearestValue::ARRAY_NEAREST_HIGHER)
         );
 
         $this->assertEquals(2000,
-            App\NearestValue::array_numeric_sorted_nearest($array, 1773,
-                App\NearestValue::ARRAY_NEAREST_HIGHER)
+            NearestValue::array_numeric_sorted_nearest($array, 1773,
+                NearestValue::ARRAY_NEAREST_HIGHER)
         );
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\BbAnalyzer;
+use App\Services\BbAnalyzer;
 use App\Subroutine;
 use Illuminate\Http\Request;
 use Log;

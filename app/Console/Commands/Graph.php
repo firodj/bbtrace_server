@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\GraphBuilder;
+use App\Services\GraphBuilder;
 
 class Graph extends Command
 {

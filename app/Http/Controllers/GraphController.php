@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\GraphBuilder;
+use App\Services\GraphBuilder;
 use Illuminate\Http\Request;
 use App\Block;
 use Log;

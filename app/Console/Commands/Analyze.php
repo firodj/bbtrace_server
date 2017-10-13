@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\BbAnalyzer;
+use App\Services\BbAnalyzer;
 
 class Analyze extends Command
 {

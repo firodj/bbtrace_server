@@ -21,7 +21,7 @@ $app->group(['prefix' => 'api/v1'], function() use ($app)
 });
 
 $app->get('/{path:.*}', function () use ($app) {
-    $anal = $app->make(App\BbAnalyzer::class);
+    $anal = $app->make(App\Services\BbAnalyzer::class);
     $env = [
         'name' => $anal->getName(),
         'version' => $app->version(),

@@ -4,7 +4,7 @@ class GraphBuilderTest extends TestCase
 {
     public function testBuild()
     {
-        $builder = new App\GraphBuilder();
+        $builder = new App\Services\GraphBuilder();
 
         $builder->build();
     }

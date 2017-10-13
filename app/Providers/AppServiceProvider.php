@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use App\BbAnalyzer;
+use App\Services\BbAnalyzer;
 
 class AppServiceProvider extends ServiceProvider
 {

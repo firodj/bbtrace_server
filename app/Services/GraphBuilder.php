@@ -1,6 +1,11 @@
 <?php
 
-namespace App;
+namespace App\Services;
+
+use App\Subroutine;
+use App\Symbol;
+use App\GraphNode;
+use App\GraphLink;
 
 class GraphBuilder
 {

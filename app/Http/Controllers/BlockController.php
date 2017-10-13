@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\BbAnalyzer;
 use Illuminate\Http\Request;
 use Log;
 use App\Block;

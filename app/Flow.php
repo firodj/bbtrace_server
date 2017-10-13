@@ -6,11 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Flow extends Model
 {
-    /**
-     * BasicBlock model should not be timestamped.
-     *
-     * @var bool
-     */
     public $timestamps = false;
     public $incrementing = false;
 

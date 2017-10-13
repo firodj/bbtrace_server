@@ -1,8 +1,13 @@
 <?php
 
-namespace App;
+namespace App\Services;
 
 use Exception;
+use App\Module;
+use App\Block;
+use App\Flow;
+use App\Symbol;
+use App\Subroutine;
 
 class BbAnalyzer
 {
