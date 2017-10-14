@@ -8,13 +8,13 @@ use App\Block;
 use App\Flow;
 use App\Symbol;
 use App\Subroutine;
+use App\Reference;
 
 class BbAnalyzer
 {
     public $function_blocks;
 
     public $file_name;
-    public $trace_log;
     public $pe_parser;
 
     public $imports; // FIXME: unused
@@ -49,23 +49,7 @@ class BbAnalyzer
         $this->capstone = cs_open(CS_ARCH_X86, CS_MODE_32);
         cs_option($this->capstone, CS_OPT_DETAIL, CS_OPT_ON);
 
-        $this->openTraceLog();
         $this->openPeParser();
-    }
-
-    public function openTraceLog()
-    {
-        $fname = bbtrace_name($this->file_name, 'trace_log.dump');
-        if (file_exists($fname)) {
-            $this->trace_log = unserialize(file_get_contents($fname));
-            app('log')->debug("Load TraceLog: $fname\n");
-            return;
-        }
-
-        $this->trace_log = new TraceLog($this->file_name);
-        $this->trace_log->buildPaging();
-        file_put_contents($fname, serialize($this->trace_log));
-        app('log')->debug("New TraceLog: $fname\n");
     }
 
     public function openPeParser()
@@ -267,74 +251,18 @@ class BbAnalyzer
         });
     }
 
-    public function storeStates($pkt_no, $states)
+    public function parseFlowLog()
     {
-        if (!isset($states)) return;
+        $fname = bbtrace_name($this->file_name, 'log.flow');
+        $fp = fopen($fname, 'r');
 
-        foreach(array_keys($states->last_block_id) as $thread_id) {
-            TraceLogState::firstOrCreate(
-                ['pkt_no' => $pkt_no, 'thread' => $thread_id],
-                [
-                    'last_block_id' => $states->last_block_id[$thread_id],
-                    'stacks' => $states->stacks[$thread_id]
-                ]);
+        while (($data = fgetcsv($fp, 100, ",")) !== FALSE) {
+            $block_id = hexdec($data[0]);
+            $last_block_id = hexdec($data[1]);
 
-        }
-    }
-
-    public function storeFlows(&$states)
-    {
-        foreach(array_values($states->flows) as $flows) {
-            foreach($flows as $flow) {
-                Flow::firstOrCreate([
-                        'id' => $flow->block_id,
-                        'last_block_id' => $flow->last_block_id
-                    ],
-                    [
-                        'xref' => $flow->xref
-                    ]
-                );
-            }
-        }
-
-        $states->flows[] = [];
-    }
-
-    public function prepareStates()
-    {
-        $states = (object)[
-            'last_block_id' => [],
-            'stacks' => [],
-            'flows' => [],
-        ];
-
-        return $states;
-    }
-
-    public function buildIngress($chunk, $states)
-    {
-        $thread_id = $chunk->header->thread;
-        fprintf(STDERR, "Packet #%d thread:%x\n", $chunk->header->pkt_no, $thread_id);
-
-        $states->last_block_id += [$thread_id => null];
-        $states->stacks        += [$thread_id => []];
-        $states->flows         += [$thread_id => []];
-
-        $data = unpack('V*', $chunk->raw_data);
-
-        foreach($data as $pos=>$block_id) {
-            $last_block_id = $states->last_block_id[$thread_id];
-            $states->last_block_id[$thread_id] = $block_id;
-
-            if (is_null($last_block_id)) continue;
-
-            // do Xrefs
-            if (!array_key_exists($block_id, $this->ingress)) {
-                $this->ingress[$block_id] = [];
-            }
-
-            $xref = self::XREF_TRACE;
             $last_block = $this->blocks[$last_block_id] ?? null;
+            $xref = self::XREF_TRACE;
+
             if ($last_block) {
                 if ($last_block->jump_dest == $block_id) { // Jxx taken or call
                     $xref = self::XREF_EXACT;
@@ -343,158 +271,23 @@ class BbAnalyzer
                 }
             }
 
+            if (!array_key_exists($block_id, $this->ingress)) {
+                $this->ingress[$block_id] = [];
+            }
             if (!array_key_exists($last_block_id, $this->ingress[$block_id])) {
                 $this->ingress[$block_id][$last_block_id] = $xref;
-                $states->flows[$thread_id][] = (object) [
-                    'block_id' => $block_id,
-                    'last_block_id' => $last_block_id,
-                    'xref' => $xref
-                ];
+                Flow::firstOrCreate([
+                        'id' => $block_id,
+                        'last_block_id' => $last_block_id
+                    ],
+                    [
+                        'xref' => $xref
+                    ]
+                );
             }
         }
 
-        return $states;
-    }
-
-    /**
-     * DEPRECATED
-     */
-    protected function calculateStack($last_block_id, $block_id, &$stacks)
-    {
-        // stacts Trace
-        $last_symbol = $this->symbols[$last_block_id] ?? null;
-        $last_block = $this->blocks[$last_block_id] ?? null;
-
-        if ($last_block) {
-            $mnemonic = $last_block->jump_mnemonic;
-            $target   = $last_block->jump_dest;
-        } else {
-            $mnemonic = null;
-            $target = null;
-        }
-
-        $symbol = $this->symbols[$block_id] ?? null;
-        $block  = $this->blocks[$block_id] ?? null;
-
-        if ($last_symbol) {
-            if ($symbol) {
-                $mnemonic = 'call';
-            } else if ($block) {
-                $mnemonic = 'ret'; // or maybe 'call'
-            }
-        }
-
-        // Info
-        //fprintf(STDERR, "%X\n", $last_block_id);
-
-        // Detect stack
-        switch ($mnemonic) {
-            case 'call':
-                array_push($stacks, $last_block_id);
-                if ($last_symbol) {
-                    //fprintf(STDERR, "push stack: %X -(%s)-> %X, symbol: %s\n", $last_block_id, $mnemonic, $block_id, $last_symbol->name);
-                }
-            default:
-                if ($target == $block_id) {
-                    return self::XREF_EXACT;
-                } else if ($last_block && $last_block->end == $block_id) { // Jcc not taken
-                    return self::XREF_EXACT;
-                }
-                break;
-
-            case 'ret':
-                $stacks_fit = false;
-                $pop_symbols = [];
-
-                // ret from symbol/block to block 
-                // stack unwind
-                for($j=count($stacks); $j; $j--) {
-                    $pop_block_id = $stacks[$j-1];
-                    $pop_block = $this->blocks[$pop_block_id] ?? null;
-
-                    if ($pop_block && $pop_block->end == $block_id) {
-                        $stacks_fit = true;
-                        array_splice($stacks, $j-1);
-                        // if top-stack is block and exactly
-                        if ($j == (count($stacks)-count($pop_symbols))) {
-                            if (isset($pop_block->subroutine_id) && !isset($block->subroutine_id)) {
-                                $block->subroutine_id = $pop_block->subroutine_id;
-                                $this->blocks[$block->id] = $block;
-
-                                Block::where('id', $block->id)->update(['subroutine_id' => $block->subroutine_id]);
-                                fprintf(STDERR, 'Assign blocks %X -> subroutine %X\n', $block->id, $block->subroutine_id);
-                            }
-                            return self::XREF_EXACT;
-                        }
-                        //fprintf(STDERR, "pop stack: %X -(%s)-> %X, symbols: %d\n", $last_block_id, $mnemonic, $block_id, count($pop_symbols));
-                        break;
-                    }
-
-                    $pop_symbol = $this->symbols[$pop_block_id] ?? null;
-                    if ($pop_symbol) {
-                        $pop_symbols[] = $pop_symbol; // FIXME: what to?
-                    }
-                }
-
-                if (! $stacks_fit) {
-                    $j = count($stacks);
-                    $top_block_id = $stacks[$j-1];
-
-                    // symbol to block(ret): callback
-                    if ($last_symbol) {
-                        array_push($stacks, $last_symbol->id);
-                        return self::XREF_SYMRET;
-                        //fprintf(STDERR, "Invalid stack: %X -(%s)-> %X, push symbol: %s\n", $last_block_id, $mnemonic, $block_id, $last_symbol->name);
-                    }
-
-                    // block to block(ret) must be called within symbol(top stack)
-                    if ($last_block) {
-                        $top_symbol = $this->symbols[$top_block_id] ?? null;
-
-                        if (!$top_symbol) {
-                            $ref = Reference::where('id', $block_id)->count();
-                            if (!$ref) {
-                                return self::XREF_FAKERET;
-                                //fprintf(STDERR, "Invalid stack: %X -(%s)->%X, fake RET/jump top: %X\n", $last_block_id, $mnemonic, $block_id, $top_block_id);
-                            }
-                        }
-                    }
-                }
-                break;
-        }
-
-        return self::XREF_TRACE;
-    }
-
-    /**
-     * DEPRECATED
-     */
-    public function buildRanges()
-    {
-        if (!isset($this->headers)) {
-            $this->headers = [];
-            foreach($this->pe_parser->headers as $name => $header) {
-                if (!array_key_exists($header[0], $this->headers)) {
-                    $this->headers[ $header[0] ] = [];
-                }
-                $this->headers[ $header[0] ][$name] = $header;
-            }
-
-            $this->header_ranges = array_keys($this->headers);
-            sort($this->header_ranges, SORT_NUMERIC);
-        }
-
-        if (!isset($this->function_ranges)) {
-            $this->function_ranges = array_keys($this->trace_log->functions);
-            sort($this->function_ranges, SORT_NUMERIC);
-        }
-
-        if (!isset($this->block_adjacents)) {
-            $this->block_adjacents = [];
-            foreach($this->trace_log->blocks as $block_id => &$block) {
-                $this->block_adjacents[ $block['block_end'] ] = $block_id;
-            }
-        }
+        fclose($fp);
     }
 
     protected function createSubroutineByBlock($block, $prefix)
