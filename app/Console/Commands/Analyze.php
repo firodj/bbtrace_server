@@ -26,19 +26,12 @@ class Analyze extends Command
 
         if ($this->option('basic')) {
             $this->anal->parseInfo();
-
             $this->anal->analyzeAllBlocks();
         }
 
         if ($this->option('flow')) {
             $this->anal->loadAll();
             $this->anal->parseFlowLog();
-
-            //$states = $this->anal->prepareStates();
-            //foreach ($this->anal->trace_log->parseLog() as $pkt_no => $chunk) {
-            //    $states = $this->anal->buildIngress($chunk, $states);
-            //    $this->anal->storeFlows($states);
-            //}
         }
 
         if ($this->option('function')) {

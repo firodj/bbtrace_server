@@ -23,7 +23,9 @@ type State = {
 class SubroutineInfo extends Component<Props, State> {
   state = {
     info: {
-      blocks: []
+      blocks: [],
+      id: 0,
+      name: '',
     }
   }
 
@@ -38,10 +40,20 @@ class SubroutineInfo extends Component<Props, State> {
 
   render() {
     const blocks = {};
-    let last_y = 0;
+    let last_y = 30;
 
     return (
       <div style={{padding: 16, width: 600, overflow: 'auto'}} id="infoPaper">
+        <div className="simple-block" style={{ top: 0, left: 0 }}>
+          <div className="instruction-row">
+            <span className="instruction-cell instruction-cell_small">address</span>
+            <span className="instruction-cell">{ sprintf("0x%x", this.state.info.id) }</span>
+          </div>
+          <div className="instruction-row">
+            <span className="instruction-cell instruction-cell_small">name</span>
+            <span className="instruction-cell">{ this.state.info.name }</span>
+          </div>
+        </div>
         { this.state.info.blocks.map(block => {
 
           if (blocks[block.id] === undefined) {
@@ -67,7 +79,7 @@ class SubroutineInfo extends Component<Props, State> {
               return (
               <div key={inst.address} className="instruction-row">
                 <span className="instruction-cell instruction-cell_small">{ inst.mnemonic }</span>
-                <span className="instruction-cell">{ inst.op_str }</span>
+                <span className="instruction-cell">{ inst.op_str } { inst.notes || '' }</span>
               </div>
               ); }
             ) }

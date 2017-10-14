@@ -173,24 +173,35 @@ class BbAnalyzer
         $insn = $this->disasmBlock($block);
 
         foreach($insn as $ins) {
-            if (!in_array($ins->mnemonic, ['mov', 'push'])) continue;
+            //if (!in_array($ins->mnemonic, ['mov', 'push', 'call'])) continue;
 
             $x86 = &$ins->detail->x86;
             foreach($x86->operands as $op) {
-                if ($op->type === 'imm' && !in_array('write', $op->access)) {
-
-                    $rva = $this->pe_parser->va2rva($op->imm);
-                    $ref = Reference::where(['ref_addr' => $ins->address, 'id' => $op->imm])->first();
+                $addr = null;
+                if ($op->type === 'imm') { // && !in_array('write', $op->access)) {
+                    $addr = $op->imm;
+                }
+                if ($op->type == 'mem') {
+                    if ($op->mem->base == 0 && $op->mem->index == 0 &&
+                        $op->mem->segment == 0 && $op->mem->scale == 1) {
+                        $addr = $op->mem->disp;
+                    }
+                }
+                if ($addr) {
+                    $rva = $this->pe_parser->va2rva($addr);
+                    $ref = Reference::where(['ref_addr' => $ins->address, 'id' => $addr])->first();
                     if ($ref) continue;
 
                     $s = $this->pe_parser->findSection($rva);
 
                     if (isset($s)) {
                         $section = $this->pe_parser->getSection($s->n);
-                        $dest = Block::find($op->imm);
+                        $dest = Block::find($addr);
+
                         $ref = new Reference;
                         $ref->ref_addr = $ins->address;
-                        $ref->id = $op->imm;
+                        $ref->id = $addr;
+
                         if (in_array('CODE', $section->flags)) {
                             $ref->kind = isset($dest) ? 'C' : 'X';
                         } else if (in_array('INITIALIZED_DATA', $section->flags)) {

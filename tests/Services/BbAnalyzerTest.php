@@ -50,5 +50,4 @@ class BbAnalyzerTest extends TestCase
         $this->anal->loadAll();
         $this->anal->parseFlowLog();
     }
-
 }

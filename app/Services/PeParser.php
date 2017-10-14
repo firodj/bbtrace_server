@@ -217,6 +217,11 @@ class PeParser implements Serializable
         return $va - $this->getHeaderValue('opt.ImageBase');
     }
 
+    public function rva2va($rva)
+    {
+        return $rva + $this->getHeaderValue('opt.ImageBase');
+    }
+
     public function rva2raw($rva)
     {
         $s = $this->findSection($rva);
@@ -514,6 +519,31 @@ class PeParser implements Serializable
         $data = unserialize($serialized);
         $this->file_name = $data['file_name'];
         $this->headers = $data['headers'];
+    }
+
+    public function getSymbolByVA($va)
+    {
+        $rva = $this->va2rva($va);
+        $raw = $this->rva2raw($rva);
+
+        foreach($this->headers as $name=>$header)
+        {
+            if (preg_match("/^(import@[0-9]+\.)(sym@[0-9]+\.)(.+)/", $name, $matches))
+            {
+                if ($matches[3] == 'AddressVA') {
+                    if ($header[0] == $raw) {
+                        $module = $this->getHeaderValue($matches[1] . 'Name');
+
+                        if (array_key_exists($matches[1] . $matches[2] . 'Name', $this->headers)) {
+                            $symbol = $this->getHeaderValue($matches[1] . $matches[2] . 'Name');
+                        } else {
+                            $symbol = $this->getHeaderValue($matches[1] . $matches[2] . 'Ordinal');
+                        }
+                        return [$module, $symbol, $matches[0]];
+                    }
+                }
+            }
+        }
     }
 
     public function __toString()
