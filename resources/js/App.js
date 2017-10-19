@@ -8,6 +8,7 @@ import {
   Link
 } from 'react-router-dom';
 import MapPage from './MapPage';
+import DagrePage from './DagrePage';
 import SubroutinePage from './SubroutinePage';
 
 type Props = { /* ... */ }
@@ -30,7 +31,8 @@ class App extends Component<Props, State> {
       <Router key="main">
         <div>
           <Route exact path='/' render={routeProps => <MapPage {...routeProps} />} />
-          <Route path='/function' render={routeProps => <SubroutinePage {...routeProps} />} />
+          <Route path='/sub' render={routeProps => <SubroutinePage {...routeProps} />} />
+          <Route path='/dagre' render={routeProps => <DagrePage {...routeProps} />} />
         </div>
       </Router>
     );
