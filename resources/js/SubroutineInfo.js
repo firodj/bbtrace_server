@@ -16,7 +16,9 @@ type Props = {
 
 type State = {
   info: {
-    blocks: Array<any>
+    blocks: Array<any>,
+    id: number,
+    name: string,
   }
 }
 

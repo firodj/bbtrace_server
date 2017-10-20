@@ -10,7 +10,6 @@
     "ciena-dagre": "^1.0.10",
     "d3": "^4.10.0",
     "d3-bboxCollide": "^1.0.3",
-    "ciena-dagre-d3": "git+https://github.com/firodj/ciena-dagre-d3.git",
     "material-ui": "^1.0.0-beta.12",
     "material-ui-icons": "^1.0.0-alpha.19",
     "react": "^15.6.1",

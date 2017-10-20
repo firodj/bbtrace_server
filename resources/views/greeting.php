@@ -7,6 +7,7 @@
   <body>
     <div id="app">
     </div>
+    <svg id="temp" style="visibility: hidden"></svg>
     <script type="text/javascript">
     var env = <?php echo json_encode($env); ?>;
     </script>
