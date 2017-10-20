@@ -7,10 +7,14 @@ import { Graph, Rect, Edge, NormalArrow } from './dagre';
 import DraggableCore from 'react-draggable';
 
 type Props = {};
-type State = {}
+type State = {
+  color: string
+}
 
 class DagrePage extends Component<Props, State> {
-  lastMousePos = {x: 0, y: 0, dragging: false}
+  state = {
+    color: 'red'
+  }
 
   render() {
     const styles = {
@@ -34,26 +38,27 @@ class DagrePage extends Component<Props, State> {
               <NormalArrow id="markerArrow" />
             </defs>
             <Graph>
-              <Rect key="foo" style={{ fill: 'red' }} onClick={(e) => console.log(e)}>
+              <Rect key="foo" style={{ fill: this.state.color }}
+                onMouseEnter={(e) => this.setState({ color: 'pink' })}
+                onMouseLeave={(e) => this.setState({ color: 'red' })}
+                >
                 <text fontSize="10" fontFamily="Verdana">
                   <tspan x="0" y="0">Here is a paragraph that</tspan>
                   <tspan x="0" y="10">requires word wrap.</tspan>
                 </text>
               </Rect>
-              <Rect key="bar" width={100} height={150} style={{ fill: 'green' }}>
+              <Rect key="bar" width={100} height={150} rx={5} ry={5} style={{ fill: 'green' }}>
                 <text>
                   bar
                 </text>
               </Rect>
-              <Rect key="baz" width={100} height={150} style={{ fill: 'blue' }}>
+              <Rect key="baz" style={{ fill: 'cyan' }}>
                 <text>
                   baz
                 </text>
               </Rect>
               <Edge markerEnd="url(#markerArrow)" source="foo" target="bar">
-                <text>
-                  Yes
-                </text>
+                <text fill="red">Yes</text>
               </Edge>
               <Edge markerEnd="url(#markerArrow)" source="foo" target="baz" />
             </Graph>

@@ -10,6 +10,8 @@ type Props = {
   children: React.Node,
   style: Object,
   labelBBox?: Object,
+  rx?: number,
+  ry?: number,
 }
 
 class Rect extends React.Component<Props> {
@@ -23,6 +25,8 @@ class Rect extends React.Component<Props> {
     var {
       x,
       y,
+      rx,
+      ry,
       width,
       height,
       labelBBox,
@@ -45,7 +49,7 @@ class Rect extends React.Component<Props> {
        ( x - (width / 2)) + ","+
        ( y - (height / 2)) + ")"}
       {...props} >
-      <rect width={width} height={height} style={style} />
+      <rect width={width} height={height} rx={rx} ry={ry} style={style} />
       <g className="label" transform={labelTransform}>
         { children }
       </g>

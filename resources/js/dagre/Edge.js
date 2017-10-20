@@ -4,6 +4,8 @@ import * as React from 'react';
 import * as d3 from 'd3';
 
 type Props = {
+  x: number,
+  y: number,
   points: Array<any>,
   style: Object,
   source: string,
@@ -18,11 +20,15 @@ class Edge extends React.Component<Props> {
     style: {
       stroke: 'black',
       fill: 'none'
-    }
+    },
+    x: 0,
+    y: 0,
   }
 
   render() {
     var {
+      x,
+      y,
       points,
       source,
       target,
@@ -34,8 +40,8 @@ class Edge extends React.Component<Props> {
 
     var labelTransform = null;
     if (labelBBox !== undefined) {
-      var labelX = labelBBox.x + points[1].x - labelBBox.width / 2;
-      var labelY = -labelBBox.y + points[1].y - labelBBox.height / 2;
+      var labelX = labelBBox.x + x - labelBBox.width / 2;
+      var labelY = -labelBBox.y + y - labelBBox.height / 2;
       labelTransform="translate(" + labelX + "," + labelY + ")";
     }
     var line = d3.line()

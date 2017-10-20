@@ -16,34 +16,62 @@ class GraphBuilder
     {
     }
 
-    public function retrieve($node_id = null, $stops = 3)
+    public function retrieve($node_id = null, $stops = null)
     {
-        $first_node = is_null($node_id) ? GraphNode::first() : GraphNode::findOrFail((int)$node_id);
+        if (!isset($stops)) $stops = 2;
+        $first_node = $node_id ? GraphNode::findOrFail((int)$node_id) : GraphNode::first();
 
-        $pendings = [$first_node];
+        $levels = [ [$first_node] ];
 
         $nodes = [];
         $links = [];
 
-        while ($node = array_shift($pendings)) {
-            $nodes[] = array_merge($node->toArray(), [
-                'stopped' => $stops == 0 && $node->links->count() > 0,
-            ]);
+        // getPrevious
+        foreach ($first_node->copies as $node) {
+            foreach ($node->prevLinks as $link) {
+                $links[] = array_merge($link->toArray(),
+                    ['target_id' => $first_node->id]
+                );
 
-            if ($stops == 0) continue;
-
-            foreach($node->links as $link) {
-                $links[] = array_merge($link->toArray(), [
-                    'source' => $link->source_id, 'target' => $link->target_id,
-                ]);
-                $pendings[] = $link->target;
+                if ($link->source_id != $first_node->id) { // Skip recursive
+                    $nodes[$link->source->id] = array_merge(
+                        $link->source->toArray(), [
+                            'has_more' => true
+                        ]);
+                }
             }
+        }
+
+        while ($pendings = array_shift($levels)) {
+            $nextPendings = [];
+            while ($node = array_shift($pendings)) {
+                if (array_key_exists($node->id, $nodes)) continue;
+
+                $nodes[$node->id] = array_merge(
+                    $node->toArray(),
+                    ['has_more' => false]
+                );
+
+                unset($nodes[$node->id]['copies']);
+
+                if ($stops == 0 && !$node->is_symbol) {
+                    $nodes[$node->id]['has_more'] = $node->links->count() > 0;
+                    continue;
+                }
+
+                foreach($node->links as $link) {
+                    $links[] = $link->toArray();
+                    $nextPendings[] = $link->target;
+                }
+            }
+
+            if (!empty($nextPendings)) $levels[] = $nextPendings;
 
             $stops--;
         }
 
         return [
-            'nodes' => $nodes,
+            'nodes' => array_values($nodes),
             'links' => $links,
         ];
     }

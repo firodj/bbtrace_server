@@ -74,7 +74,9 @@ class Graph extends React.Component<Props> {
     var g = new graphlib.Graph();
 
     // Set an object for the graph label
-    g.setGraph({ marginx: 20, marginy: 20 });
+    g.setGraph({ marginx: 20, marginy: 20,
+      nodesep: 10, edgesep: 2, ranksep: 20
+    });
 
     // Default to assigning a new object as a label for each new edge.
     g.setDefaultEdgeLabel(function() { return {}; });
@@ -139,6 +141,8 @@ class Graph extends React.Component<Props> {
         const key = `${e.v}-${e.w}`
         gLast.edges[key] = {
           points: edge.points,
+          x: edge.x,
+          y: edge.y,
           labelBBox: edge.labelBBox,
           key
         };

@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import ReactDOM from 'react-dom';
 
 import Button from 'material-ui/Button';
 import Grid from 'material-ui/Grid';
@@ -14,7 +15,8 @@ import Paper from 'material-ui/Paper';
 
 import * as d3 from 'd3';
 import * as _ from 'lodash';
-import { bboxCollide } from 'd3-bboxCollide';
+import { Graph, Rect, Edge, NormalArrow } from './dagre';
+import Draggable, { DraggableCore } from 'react-draggable';
 
 import SubroutineInfo from './SubroutineInfo';
 
@@ -22,268 +24,41 @@ const sprintf = require('sprintf-js').sprintf;
 
 import axios from 'axios';
 
-class MapPage extends Component {
+type Props = {}
 
-  constructor(props) {
-    super(props);
+class MapPage extends Component<Props> {
+  state = {
+    open_right: false,
+    nodes: [],
+    links: [],
+    subroutine_id: 0
+  };
 
-    this.state = {
-      info: {
-        id: 0
-      },
-      open: {
-        right: false,
-      },
-      graph: {
-        nodes: [],
-        links: [],
-      },
-      subroutine_id: 0
-    };
-
-    this.drawing = {};
+  drawing = {
+    ref: null,
+    panX: 0,
+    panY: 0
   }
 
-  initGraph()
+  updateGraph(data)
   {
-    var that = this;
-
-    this.drawing.ticked = function() {
-      that.drawing.link
-          .attr("x1", function(d) { return d.source.x; })
-          .attr("y1", function(d) { return d.source.y; })
-          .attr("x2", function(d) { return d.target.x > d.source.x ? d.target.x - 10 : d.target.x + 10; })
-          .attr("y2", function(d) { return d.target.y > d.source.y ? d.target.y - 10 : d.target.y + 10; });
-
-      that.drawing.node
-          .attr("x", function(d) { return d.x - d.label.length * 3.5; })
-          .attr("y", function(d) { return d.y - 7.5; });
-
-      that.drawing.text
-          .attr("x", function(d) { return d.x; })
-          .attr("y", function(d) { return d.y; });
-    };
-
-    this.drawing.dragstarted = function(d) {
-      if (!d3.event.active) that.drawing.simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
-    };
-
-    this.drawing.dragged = function(d) {
-      d.fx = d3.event.x;
-      d.fy = d3.event.y;
-    }
-
-    this.drawing.dragended = function(d) {
-      if (!d3.event.active) that.drawing.simulation.alphaTarget(0);
-      d.fx = null;
-      d.fy = null;
-    }
-
-    this.drawing.dblclicked = function(d) {
-      if (!d.stopped) return;
-
-      axios.get(`/api/v1/graph?id=${d.id}`)
-        .then(res => {
-          that.updateGraph(res.data);
-        });
-    }
-
-    this.drawing.clicked = function(d) {
-      if (d3.event.defaultPrevented) return; // dragged
-
-      const selected = !d3.select(this).classed("selected");
-
-      that.drawing.node.classed("selected", false);
-      that.drawing.link.classed("selected", false);
-
-      d3.select(this).classed("selected", function(d) {
-        return selected;
-      });
-
-      if (selected) {
-        that.drawing.link.classed("selected", function(l) {
-          const s_id = typeof l.source === 'object' ? l.source.id : l.source;
-          const t_id = typeof l.target === 'object' ? l.target.id : l.target;
-          return (s_id == d.id || t_id == d.id);
-        });
-
-        if (d.is_symbol == 0) {
-          that.setState({
-            subroutine_id: d.subroutine_id,
-            open: { right: true }
-          });
-        } else {
-          that.setState({
-            open: { right: false }
-          });
-        }
-      } else {
-        that.setState({
-          open: { right: false }
-        });
-      }
-    };
-
-    var zoom = d3.zoom()
-              .scaleExtent([1, 1])
-              .on("zoom", () => {
-                that.drawing.svg.attr("transform", d3.event.transform); //"translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-              });
-
-    var width = document.getElementById('mainPaper').offsetWidth;
-    var height = document.getElementById('mainPaper').offsetHeight;
-
-    this.drawing.svg = d3.select("#mainPaper svg")
-            .append('g');
-
-    var defs = d3.select("#mainPaper svg").append("defs");
-
-    defs.append("marker")
-        .attr("id", "arrow")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 5)
-        .attr("refY", 0)
-        .attr("markerWidth", 4)
-        .attr("markerHeight", 4)
-        .attr("orient", "auto")
-      .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .style("stroke", "gray");
-
-    d3.select("#mainPaper svg")
-            .call(zoom)
-              .on("dblclick.zoom", null);
-    d3.select("#mainPaper svg")
-            .call(zoom.translateBy, width/2, height/2);
-
-    this.drawing.linkContainer = this.drawing.svg.append("g")
-        .attr("class", "links");
-    this.drawing.nodeContainer = this.drawing.svg.append("g")
-        .attr("class", "nodes");
-    this.drawing.textContainer = this.drawing.svg.append("g")
-        .attr("class", "labels");
-
-    const collide = bboxCollide(function (d,i) {
-      return [[- d.label.length * 3.5,  - 7.5],[+ d.label.length * 3.5, + 7.5]]
-    });
-
-    this.drawing.simulation = d3.forceSimulation()
-      .force("charge", d3.forceManyBody())
-      .force("link", d3.forceLink()
-        .id(function(d) { return d.id; })
-        .distance(250).strength(.1)
-      )
-      .force("center", d3.forceCenter(0, 0))
-      .force("collide", collide.strength(.1).iterations(4))
-      .stop()
-      .on("tick", this.drawing.ticked)
-  }
-
-  beforeNodes(mergeGraph)
-  {
-    const changeNodeById = d3.map(
-      _.filter(mergeGraph.nodes, node => !node.stopped),
-      d => d.id);
-    const removeNodes = [];
-
-    _.forEach(this.state.graph.nodes, oldNode => {
-      const updateNode = changeNodeById.get(oldNode.id);
-      if (updateNode) {
-        _.assign(oldNode, updateNode);
-        removeNodes.push(oldNode);
-      }
-    });
-
-    const removeNodeById = d3.map(removeNodes, d => d.id);
-
-    _.remove(mergeGraph.nodes, oldNode => removeNodeById.get(oldNode.id));
-  }
-
-  updateGraph(mergeGraph)
-  {
-    this.beforeNodes(mergeGraph);
-
-    var graph = {
-        nodes: this.state.graph.nodes.concat(mergeGraph.nodes),
-        links: this.state.graph.links.concat(mergeGraph.links),
-    }
-
-    this.setState({ graph });
-
-    this.drawing.simulation.stop();
-
-    var node = this.drawing.nodeContainer
-      .selectAll("rect")
-      .data(graph.nodes, function(d) { return d.id; });
-    node.exit().remove();
-
-    this.drawing.node = node
-      .enter().append("rect")
-        .attr("width", function(d) { return d.label.length * 7; })
-        .attr("height", 15)
-        .attr("rx", 3)
-        .attr("ry", 3)
-        .style("fill", function(d) {
-          return d.is_symbol ? (d.is_copy ? "magenta" : "purple") :
-            (d.is_copy ? "lime" : "green");
-        })
-        .classed("is_copy", function(d) {
-          return d.is_copy;
-        })
-        .on("click", this.drawing.clicked)
-        .on("dblclick", this.drawing.dblclicked)
-        .call(d3.drag()
-          .on("start", this.drawing.dragstarted)
-          .on("drag", this.drawing.dragged)
-          .on("end", this.drawing.dragended))
-      .merge(node)
-        .style("fill-opacity", function(d) {
-          return d.stopped ? .3 : (d.is_copy ? .7 : 1);
-        });
-
-    var link = this.drawing.linkContainer
-      .selectAll("line")
-      .data(graph.links, function(d) { return d.id; });
-    link.exit().remove();
-    this.drawing.link = link
-      .enter().append("line")
-        .style("stroke-width", 1.5)
-        .style("stroke", function(d) {
-          return d.xref == 0 ? 'dimgray' : 'lightgray';
-        })
-        .attr("marker-end", "url(#arrow)")
-      .merge(link);
-
-    var text = this.drawing.textContainer
-      .selectAll("text")
-      .data(graph.nodes, function(d) { return d.id; });
-    text.exit().remove();
-    this.drawing.text = text
-      .enter().append("text")
-        .attr("dy", 2)
-        .attr("text-anchor", "middle")
-        .text(function(d) {return d.label})
-        .attr("fill", function(d) {
-          return d.is_copy ? "black" : "white";
-        })
-      .merge(text);
-
-    this.drawing.simulation.nodes(graph.nodes);
-    this.drawing.simulation.force("link").links(graph.links);
-    this.drawing.simulation.restart();
+    this.setState({
+      nodes: data.nodes,
+      links: data.links
+    })
   }
 
   componentDidMount() {
-    this.initGraph();
     // https://bl.ocks.org/mbostock/6123708
-    axios.get(`/api/v1/graph`)
+    this.fetchData(this.state.subroutine_id);
+  }
+
+  fetchData(id) {
+    axios.get(`/api/v1/graph?id=${id}`)
       .then(res => {
         this.updateGraph(res.data);
       });
   }
-
 
   render() {
     const paperStyle = {
@@ -298,16 +73,90 @@ class MapPage extends Component {
 
     return (
       <div style={paperStyle} id="mainPaper">
-        <svg width="100%" height="100%"></svg>
+        <DraggableCore onDrag={this.handleDrag}>
+          <svg width="100%" height="100%">
+              <defs>
+                <NormalArrow id="markerArrow" />
+                <linearGradient id="gradientGreen" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="green"/>
+                  <stop offset="100%" stopColor="black"/>
+                </linearGradient>
+                <linearGradient id="gradientPurple" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="purple"/>
+                  <stop offset="100%" stopColor="black"/>
+                </linearGradient>
+              </defs>
+              <Graph ref={(drawing) => this.drawing.ref = drawing} >
+                { this.state.nodes.map(node => (
+                  <Rect key={node.id} data-id={node.id} data-subroutine-id={node.subroutine_id} data-is-symbol={node.is_symbol} data-has-more={Number(node.has_more)} data-is-copy={node.is_copy}
+                    rx={5} ry={5}
+                    style={{
+                      fill: node.has_more ? (node.is_symbol ? "url(#gradientPurple)" : "url(#gradientGreen)") : (node.is_symbol ? 'purple' : 'green'),
+                      stroke: 'none',
+                      opacity: node.is_copy ? 0.5 : 1.0
+                    }}
+                    onClick={this.handleNodeClick}
+                  >
+                    <text fontSize={8} fill="white">
+                      { node.label }
+                    </text>
+                  </Rect>
+                ))}
+                { this.state.links.map(link => (
+                  <Edge key={link.id} markerEnd="url(#markerArrow)" source={link.source_id} target={link.target_id} />
+                ))}
+              </Graph>
+          </svg>
+        </DraggableCore>
         <Drawer
           anchor="right"
           type="persistent"
-          open={this.state.open.right}
+          open={this.state.open_right}
         >
           <SubroutineInfo subroutine_id={ this.state.subroutine_id } />
         </Drawer>
       </div>
     );
+  }
+
+  panTo(x, y) {
+    this.drawing.panX = x;
+    this.drawing.panY = y;
+    var el = ReactDOM.findDOMNode(this.drawing.ref);
+    el.setAttribute("transform", `translate(${this.drawing.panX}, ${this.drawing.panY})`);
+  }
+
+  handleDrag = (e, data) => {
+    this.panTo(this.drawing.panX + data.deltaX,
+      this.drawing.panY + data.deltaY);
+  }
+
+  handleNodeClick = (e) => {
+    const is_symbol = e.currentTarget.dataset.isSymbol != 0;
+    const is_copy = e.currentTarget.dataset.isCopy != 0;
+    const subroutine_id = e.currentTarget.dataset.subroutineId; // getAttribute('data-subroutine-id');
+    const id = e.currentTarget.dataset.id;
+    const has_more = e.currentTarget.dataset.hasMore != 0;
+
+    if (is_symbol) {
+      this.setState({
+        subroutine_id: 0,
+        open_right: false
+      });
+      if (has_more) {
+        this.fetchData(id);
+        this.panTo(0, 0);
+      }
+    } else {
+      this.setState({
+        subroutine_id,
+        open_right: true
+      })
+      if (has_more || is_copy) {
+        this.fetchData(id);
+        this.panTo(0, 0);
+      }
+    }
   }
 }
 

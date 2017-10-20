@@ -22,9 +22,10 @@ class GraphController extends Controller
     public function index(Request $request)
     {
         $id = $request->input('id');
+        $stops = $request->input('stops');
 
         $builder = new GraphBuilder();
 
-        return $builder->retrieve($id);
+        return $builder->retrieve($id, $stops);
     }
 }

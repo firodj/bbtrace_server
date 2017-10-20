@@ -23,4 +23,14 @@ class GraphNode extends Model
     {
         return $this->hasMany(GraphLink::class, 'source_id');
     }
+
+    public function prevLinks()
+    {
+        return $this->hasMany(GraphLink::class, 'target_id');
+    }
+
+    public function copies()
+    {
+        return $this->hasMany(GraphNode::class, 'subroutine_id', 'subroutine_id');
+    }
 }

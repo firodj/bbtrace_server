@@ -496,8 +496,6 @@ class BbAnalyzer
         //fprintf(STDERR, "callback: %d\n", $this->data->callbacks[$block_id] ?? null);
     }
 
-
-
     public function buildExgress()
     {
         foreach($this->ingress as $block_id => $befores) {
