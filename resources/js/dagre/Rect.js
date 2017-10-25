@@ -87,7 +87,7 @@ class Rect extends React.Component<Props> {
     graph.setNode(node, labelProps);
     graph.dirty = true;
 
-    console.log('Rect mounted:', node);
+    // console.log('Rect mounted:', node);
   }
 
   componentDidUpdate() {
@@ -114,17 +114,17 @@ class Rect extends React.Component<Props> {
       graph.setNode(node, nextLabelProps);
       graph.dirty = true;
 
-      console.log('Rect updated:', node);
+      // console.log('Rect updated:', node);
     }
   }
 
-  componentWillUmount() {
+  componentWillUnmount() {
     const { node } = this.props;
     const graph = this.context.graph;
     graph.removeNode(node);
     graph.dirty = true;
 
-    console.log('Rect unmount:', node);
+    // console.log('Rect unmount:', node);
   }
 }
 

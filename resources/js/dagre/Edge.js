@@ -96,7 +96,7 @@ class Edge extends React.Component<Props> {
     graph.setEdge(source, target, labelProps);
     graph.dirty = true;
 
-    console.log('Edge mounted: ', source, target);
+    // console.log('Edge mounted: ', source, target);
   }
 
   componentDidUpdate() {
@@ -125,17 +125,17 @@ class Edge extends React.Component<Props> {
       graph.setEdge(source, target, nextLabelProps);
       graph.dirty = true;
 
-      console.log('Edge updated: ', source, target);
+      // console.log('Edge updated: ', source, target);
     }
   }
 
-  componentWillUmount() {
+  componentWillUnmount() {
     const { source, target } = this.props;
     const graph = this.context.graph;
     graph.removeEdge(source, target);
     graph.dirty = true;
 
-    console.log('Edge unmount: ', source, target);
+    // console.log('Edge unmount: ', source, target);
   }
 }
 

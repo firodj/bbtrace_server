@@ -58,6 +58,9 @@ class DagrePage extends Component<Props, State> {
           source: 'fo',
           target: 'obar'
         });
+      } else {
+        nextState.nodes = prevState.nodes.slice(0, 2);
+        nextState.edges = prevState.edges.slice(0, 1);
       }
 
       return nextState;
