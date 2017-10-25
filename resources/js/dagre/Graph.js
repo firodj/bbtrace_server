@@ -73,9 +73,6 @@ class Graph extends React.Component<Props> {
     serialize: [], nodes: {}, edges: {}, graph: {}
   }
   graph: ?Object = null;
-  state = {
-    ready: false
-  }
 
   getChildContext() {
     return {
@@ -83,7 +80,7 @@ class Graph extends React.Component<Props> {
     };
   }
 
-  componentWillMount() {
+  createGraph() {
     // Create a new directed graph
     const graph = new graphlib.Graph();
 
@@ -99,68 +96,24 @@ class Graph extends React.Component<Props> {
     graph.setDefaultEdgeLabel(function() { return {}; });
 
     this.graph = graph;
-    //this.prepareChildren(this.props);
+    this.graph.dirty = false;
   }
 
-  componentWillUpdate(nextProps: Props)
-  {
-    this.applyGraph(nextProps);
-  }
-
-  prepareChildren(props: Props) {
-    const { children } = props;
-
-    if (children === undefined) return;
-
-    const nodes = [];
-    const edges = [];
-    const graph = this.graph;
-
-    React.Children.forEach(children, child => {
-      if (child.type === Edge) {
-        const { source, target } = child.props;
-        const key = `${source}-${target}`;
-        edges.push(React.cloneElement(child, { key }));
-      } else { // Rect
-        const key = child.props.node;
-        nodes.push(React.cloneElement(child, { key }));
-      }
-    });
-
-    this.nodes = nodes;
-    this.edges = edges;
+  componentWillMount() {
+    this.createGraph();
   }
 
   relayout() {
     const graph = this.graph;
-    console.log('relayout');
-    layout(graph);
-  }
 
-  applyGraph(props: Props) {
-    const { children } = props;
-    const graph = this.graph;
+    if (graph.dirty) {
+      layout(graph);
+      graph.dirty = false;
+      this.graph = graph;
 
-    var nodes = [];
-    var edges = [];
-
-    React.Children.forEach(children, child => {
-      if (child.type === Edge) {
-        const { source, target } = child.props;
-        const key = `${source}-${target}`;
-        const edge = graph.edge({v: source, w: target});
-
-        edges.push(React.cloneElement(child, { key, graph, ...edge }));
-      } else { // Rect
-        const key = child.props.node;
-        const node = graph.node(key);
-
-        nodes.push(React.cloneElement(child, { key, graph, ...node }));
-      }
-    });
-
-    this.nodes = nodes;
-    this.edges = edges;
+      console.log('relayout');
+      this.forceUpdate();
+    }
   }
 
   calculateLayout(props: Props) {
@@ -275,7 +228,10 @@ class Graph extends React.Component<Props> {
 
   componentDidMount() {
     this.relayout();
-    this.setState({ ready: true });
+  }
+
+  componentDidUpdate(prevProps: Props, prevState: State) {
+    this.relayout();
   }
 }
 

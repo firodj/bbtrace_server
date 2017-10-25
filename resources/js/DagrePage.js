@@ -8,12 +8,60 @@ import DraggableCore from 'react-draggable';
 
 type Props = {};
 type State = {
-  color: string
+  color: string,
+  nodes: Array<any>,
+  edges: Array<any>,
 }
 
 class DagrePage extends Component<Props, State> {
   state = {
-    color: 'red'
+    color: 'red',
+    nodes: [
+      {
+        node: 'bar',
+        width: 100,
+        height: 150,
+        rx: 5,
+        ry: 5,
+        style: { fill: 'green' },
+        label: 'bar'
+      },
+      {
+        node: 'baz',
+        style: { fill: 'cyan' },
+        label: 'baz'
+      },
+    ],
+    edges: [
+      {
+        source: 'foo',
+        target: 'baz',
+      },
+    ]
+  }
+
+  handleClick = (e) => {
+    this.setState(prevState => {
+      const nextState = { ...prevState };
+      if (prevState.nodes.length < 3) {
+        nextState.nodes.push({
+          node: 'fo',
+          style: { fill: 'yellow' },
+          label: 'fo'
+        });
+        nextState.nodes.push({
+          node: 'obar',
+          style: { fill: 'purple' },
+          label: 'obar'
+        });
+        nextState.edges.push({
+          source: 'fo',
+          target: 'obar'
+        });
+      }
+
+      return nextState;
+    });
   }
 
   render() {
@@ -30,33 +78,6 @@ class DagrePage extends Component<Props, State> {
       }
     };
 
-    const nodes = [
-      {
-        node: 'bar',
-        width: 100,
-        height: 150,
-        rx: 5,
-        ry: 5,
-        style: { fill: 'green' },
-        label: 'bar'
-      },
-      {
-        node: 'baz',
-        style: { fill: 'cyan' },
-        label: 'baz'
-      },
-      {
-        node: 'fo',
-        style: { fill: 'yellow' },
-        label: 'fo'
-      },
-      {
-        node: 'obar',
-        style: { fill: 'purple' },
-        label: 'obar'
-      },
-    ];
-
     return (
       <div style={styles.paper} id="mainPaper">
         <DraggableCore>
@@ -68,13 +89,14 @@ class DagrePage extends Component<Props, State> {
               <Rect node="foo" style={{ fill: this.state.color }}
                 onMouseEnter={(e) => this.setState({ color: 'pink' })}
                 onMouseLeave={(e) => this.setState({ color: 'red' })}
+                onClick={this.handleClick}
                 >
                 <text fontSize="10" fontFamily="Verdana">
                   <tspan x="0" y="0">Here is a paragraph that</tspan>
                   <tspan x="0" y="10">requires word wrap.</tspan>
                 </text>
               </Rect>
-              { nodes.map(node => {
+              { this.state.nodes.map(node => {
                 const { label, ...props } = node;
                 return (
                   <Rect key={props.node} {...props} >
@@ -87,8 +109,12 @@ class DagrePage extends Component<Props, State> {
               <Edge markerEnd="url(#markerArrow)" source="foo" target="bar">
                 <text fill="red">Yes</text>
               </Edge>
-              <Edge markerEnd="url(#markerArrow)" source="foo" target="baz" />
-              <Edge markerEnd="url(#markerArrow)" source="fo" target="obar" />
+              { this.state.edges.map( edge => {
+                return (
+                  <Edge key={`${edge.source}-${edge.target}`} markerEnd="url(#markerArrow)" source={ edge.source } target={ edge.target } />
+                );
+                }
+              )}
             </Graph>
           </svg>
         </DraggableCore>

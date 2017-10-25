@@ -6,31 +6,26 @@ import * as d3 from 'd3';
 
 type Props = {
   node: string,
-  x: number,
-  y: number,
   width?: number,
   height?: number,
   children: React.Node,
   style: Object,
-  labelBBox?: Object,
   rx?: number,
   ry?: number,
 }
+
+const LABEL_MARGIN = 10;
 
 class Rect extends React.Component<Props> {
   labelRef: ?SVGGElement = null;
   labelBBox: ?SVGRect = null;
 
   static defaultProps = {
-    x: 0,
-    y: 0,
     style: {},
   }
 
   render() {
     var {
-      x,
-      y,
       rx,
       ry,
       width,
@@ -40,6 +35,9 @@ class Rect extends React.Component<Props> {
       node,
       ...props
     } = this.props;
+
+    var x = 0;
+    var y = 0;
 
     const nodeLabel = this.context.graph.node(node);
     if (nodeLabel !== undefined) {
@@ -74,7 +72,6 @@ class Rect extends React.Component<Props> {
 
   componentDidMount() {
     const g = d3.select(this.labelRef);
-    const LABEL_MARGIN = 10;
 
     const { width, height, node } = this.props;
     const labelBBox = g.node().getBBox();
@@ -88,6 +85,46 @@ class Rect extends React.Component<Props> {
 
     const graph = this.context.graph;
     graph.setNode(node, labelProps);
+    graph.dirty = true;
+
+    console.log('Rect mounted:', node);
+  }
+
+  componentDidUpdate() {
+    const graph = this.context.graph;
+    var { width, height, node } = this.props;
+    const labelProps = graph.node(node);
+    const g = d3.select(this.labelRef);
+    const labelBBox = g.node().getBBox();
+
+    width = width || labelBBox.width + LABEL_MARGIN;
+    height = height || labelBBox.height + LABEL_MARGIN;
+
+    if (width != labelProps.width ||
+      height != labelProps.height)
+    {
+      const graph = this.context.graph;
+      graph.dirty = true;
+
+      const nextLabelProps = {
+        labelBBox,
+        width,
+        height,
+      };
+      graph.setNode(node, nextLabelProps);
+      graph.dirty = true;
+
+      console.log('Rect updated:', node);
+    }
+  }
+
+  componentWillUmount() {
+    const { node } = this.props;
+    const graph = this.context.graph;
+    graph.removeNode(node);
+    graph.dirty = true;
+
+    console.log('Rect unmount:', node);
   }
 }
 

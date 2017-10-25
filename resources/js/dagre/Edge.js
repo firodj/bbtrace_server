@@ -7,12 +7,8 @@ import * as d3 from 'd3';
 type Props = {
   source: string,
   target: string,
-  x: number,
-  y: number,
-  points: Array<any>,
   style: Object,
   children?: React.Node,
-  labelBBox?: Object,
   labelpos?: "l" | "c" | "r",
 }
 
@@ -33,9 +29,6 @@ class Edge extends React.Component<Props> {
 
   render() {
     var {
-      x,
-      y,
-      points,
       source,
       target,
       style,
@@ -46,14 +39,19 @@ class Edge extends React.Component<Props> {
 
     const edgeLabel = this.context.graph.edge({v: source, w: target});
 
+    var x = 0;
+    var y = 0;
+    var points = [];
+
     if (edgeLabel !== undefined) {
       points = edgeLabel.points;
-      x = edgeLabel.x || 0;
-      y = edgeLabel.y || 0;
+      x = edgeLabel.x || x;
+      y = edgeLabel.y || y;
     }
 
     var labelTransform = null;
     const labelBBox = this.labelBBox;
+
     if (labelBBox !== null) {
       var labelX = labelBBox.x + x - labelBBox.width / 2;
       var labelY = -labelBBox.y + y - labelBBox.height / 2;
@@ -96,6 +94,48 @@ class Edge extends React.Component<Props> {
     const graph = this.context.graph;
 
     graph.setEdge(source, target, labelProps);
+    graph.dirty = true;
+
+    console.log('Edge mounted: ', source, target);
+  }
+
+  componentDidUpdate() {
+    const graph = this.context.graph;
+    const { source, target, labelpos } = this.props;
+    const labelProps = graph.edge({v: source, w: target});
+    const g = d3.select(this.labelRef);
+    const labelBBox = g.node().getBBox();
+
+    var width = labelBBox.width;
+    var height = labelBBox.height;
+
+    if (width != labelProps.width ||
+      height != labelProps.height)
+    {
+      const graph = this.context.graph;
+      graph.dirty = false;
+
+      const nextLabelProps = {
+        labelBBox,
+        width: labelBBox.width,
+        height: labelBBox.height,
+        labelpos,
+      };
+
+      graph.setEdge(source, target, nextLabelProps);
+      graph.dirty = true;
+
+      console.log('Edge updated: ', source, target);
+    }
+  }
+
+  componentWillUmount() {
+    const { source, target } = this.props;
+    const graph = this.context.graph;
+    graph.removeEdge(source, target);
+    graph.dirty = true;
+
+    console.log('Edge unmount: ', source, target);
   }
 }
 
