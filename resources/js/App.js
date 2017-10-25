@@ -31,6 +31,7 @@ class App extends Component<Props, State> {
       <Router key="main">
         <div>
           <Route exact path='/' render={routeProps => <MapPage {...routeProps} />} />
+          <Route path='/map/:id' render={routeProps => <MapPage {...routeProps} />} />
           <Route path='/sub' render={routeProps => <SubroutinePage {...routeProps} />} />
           <Route path='/dagre' render={routeProps => <DagrePage {...routeProps} />} />
         </div>

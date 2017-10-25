@@ -16,16 +16,28 @@ type Props = {
   children?: React.ChildrenArray<React.Element<any>>
 }
 
+type State = {
+  ready: boolean
+}
+
 /**
  * get bounding box which must be rendering on temp DOM
  */
 function getBBox(child) {
+  const el = <g className="label">{ child.props.children }</g>;
+  debugger;
   ReactDOM.render(
-    child,
-    document.getElementById('temp')
+    el,
+    document.getElementById('bboxlabel')
   );
-  var g = d3.select('svg#temp g.label');
+  // return {x: 0, y: 0, width: 0, height: 0};
+  
+  var g = d3.select('svg#bboxlabel g.label');
+  window.g = g;
+  debugger;
+
   var labelBBox = g.node().getBBox();
+  console.log(labelBBox);
 
   return {
     x: labelBBox.x,
@@ -59,14 +71,88 @@ class Graph extends React.Component<Props> {
   gLast = {
     serialize: [], nodes: {}, edges: {}, graph: {}
   }
+  graph: ?Object = null;
+  state = {
+    ready: false
+  }
 
   componentWillMount() {
-    this.calculateLayout(this.props);
+    // Create a new directed graph
+    const graph = new graphlib.Graph();
+
+    // Set an object for the graph label
+    graph.setGraph({
+      marginx: 20, marginy: 20,
+      nodesep: 10, edgesep: 2, ranksep: 20,
+      rankdir: 'LR',
+      align: 'DR',
+    });
+
+    // Default to assigning a new object as a label for each new edge.
+    graph.setDefaultEdgeLabel(function() { return {}; });
+
+    this.graph = graph;
+    this.prepareChildren(this.props);
   }
 
   componentWillUpdate(nextProps: Props)
   {
-    this.calculateLayout(nextProps);
+    this.applyGraph(nextProps);
+  }
+
+  prepareChildren(props: Props) {
+    const { children } = props;
+
+    if (children === undefined) return;
+
+    const nodes = [];
+    const edges = [];
+    const graph = this.graph;
+
+    React.Children.forEach(children, child => {
+      if (child.type === Edge) {
+        const { source, target } = child.props;
+        const key = `${source}-${target}`;
+        edges.push(React.cloneElement(child, { key, graph }));
+      } else { // Rect
+        const key = child.props.node;
+        nodes.push(React.cloneElement(child, { key, graph }));
+      }
+    });
+
+    this.nodes = nodes;
+    this.edges = edges;
+  }
+
+  relayout() {
+    const graph = this.graph;
+    layout(graph);
+  }
+
+  applyGraph(props: Props) {
+    const { children } = props;
+    const graph = this.graph;
+
+    var nodes = [];
+    var edges = [];
+
+    React.Children.forEach(children, child => {
+      if (child.type === Edge) {
+        const { source, target } = child.props;
+        const key = `${source}-${target}`;
+        const edge = graph.edge({v: source, w: target});
+
+        edges.push(React.cloneElement(child, { key, graph, ...edge }));
+      } else { // Rect
+        const key = child.props.node;
+        const node = graph.node(key);
+
+        nodes.push(React.cloneElement(child, { key, graph, ...node }));
+      }
+    });
+
+    this.nodes = nodes;
+    this.edges = edges;
   }
 
   calculateLayout(props: Props) {
@@ -75,7 +161,9 @@ class Graph extends React.Component<Props> {
 
     // Set an object for the graph label
     g.setGraph({ marginx: 20, marginy: 20,
-      nodesep: 10, edgesep: 2, ranksep: 20
+      nodesep: 10, edgesep: 2, ranksep: 20,
+      rankdir: 'LR',
+      align: 'DR',
     });
 
     // Default to assigning a new object as a label for each new edge.
@@ -85,25 +173,26 @@ class Graph extends React.Component<Props> {
 
     if (children !== undefined) {
       React.Children.forEach(children, child => {
+        var { width, height, labelpos } = child.props;
+        const labelProps = {
+          label: child,
+          labelBBox: {x:0, y:0, width:0, height:0},
+          width,
+          height,
+          labelpos,
+        };
+
+        if (child.props.children !== undefined) {
+          const labelBBox = getBBox(child);
+          labelProps.labelBBox = labelBBox;
+          labelProps.width = width || (labelBBox.width + 10);
+          labelProps.height = height ||(labelBBox.height + 10);
+        }
+
         if (child.type === Edge) {
-          const labelBBox = getBBox(child);
-          g.setEdge(child.props.source, child.props.target, {
-            label: child,
-            labelBBox,
-          });
+          g.setEdge(child.props.source, child.props.target, labelProps);
         } else { // Rect
-          var { width, height } = child.props;
-          const labelBBox = getBBox(child);
-
-          width = width || (labelBBox.width + 10);
-          height = height ||(labelBBox.height + 10);
-
-          g.setNode(child.key, {
-            label: child,
-            width,
-            height,
-            labelBBox,
-          });
+          g.setNode(child.key, labelProps);
         }
       });
     }
@@ -171,10 +260,19 @@ class Graph extends React.Component<Props> {
 
     return (
       <g className="output" {...props}>
-        { this.nodes }
-        { this.edges }
+        <g className="nodes">
+          { this.nodes }
+        </g>
+        <g className="edges">
+          { this.edges }
+        </g>
       </g>
     );
+  }
+
+  componentDidMount() {
+    this.relayout();
+    this.setState({ ready: true });
   }
 }
 

@@ -30,6 +30,33 @@ class DagrePage extends Component<Props, State> {
       }
     };
 
+    const nodes = [
+      {
+        node: 'bar',
+        width: 100,
+        height: 150,
+        rx: 5,
+        ry: 5,
+        style: { fill: 'green' },
+        label: 'bar'
+      },
+      {
+        node: 'baz',
+        style: { fill: 'cyan' },
+        label: 'baz'
+      },
+      {
+        node: 'fo',
+        style: { fill: 'yellow' },
+        label: 'fo'
+      },
+      {
+        node: 'obar',
+        style: { fill: 'purple' },
+        label: 'obar'
+      },
+    ];
+
     return (
       <div style={styles.paper} id="mainPaper">
         <DraggableCore>
@@ -38,7 +65,7 @@ class DagrePage extends Component<Props, State> {
               <NormalArrow id="markerArrow" />
             </defs>
             <Graph>
-              <Rect key="foo" style={{ fill: this.state.color }}
+              <Rect node="foo" style={{ fill: this.state.color }}
                 onMouseEnter={(e) => this.setState({ color: 'pink' })}
                 onMouseLeave={(e) => this.setState({ color: 'red' })}
                 >
@@ -47,20 +74,21 @@ class DagrePage extends Component<Props, State> {
                   <tspan x="0" y="10">requires word wrap.</tspan>
                 </text>
               </Rect>
-              <Rect key="bar" width={100} height={150} rx={5} ry={5} style={{ fill: 'green' }}>
-                <text>
-                  bar
-                </text>
-              </Rect>
-              <Rect key="baz" style={{ fill: 'cyan' }}>
-                <text>
-                  baz
-                </text>
-              </Rect>
+              { nodes.map(node => {
+                const { label, ...props } = node;
+                return (
+                  <Rect key={props.node} {...props} >
+                    <text>
+                      { label }
+                    </text>
+                  </Rect>
+                  );
+              })}
               <Edge markerEnd="url(#markerArrow)" source="foo" target="bar">
                 <text fill="red">Yes</text>
               </Edge>
               <Edge markerEnd="url(#markerArrow)" source="foo" target="baz" />
+              <Edge markerEnd="url(#markerArrow)" source="fo" target="obar" />
             </Graph>
           </svg>
         </DraggableCore>

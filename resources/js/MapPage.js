@@ -24,7 +24,10 @@ const sprintf = require('sprintf-js').sprintf;
 
 import axios from 'axios';
 
-type Props = {}
+type Props = {
+  history: any,
+  match: any
+}
 
 class MapPage extends Component<Props> {
   state = {
@@ -50,11 +53,18 @@ class MapPage extends Component<Props> {
 
   componentDidMount() {
     // https://bl.ocks.org/mbostock/6123708
-    this.fetchData(this.state.subroutine_id);
+    const graph_id = this.props.match.params.id || 1;
+    this.fetchData(graph_id);
+  }
+
+  componentWillReceiveProps(nextProps) {
+    console.log(nextProps);
+    this.fetchData(nextProps.match.params.id);
+    this.panTo(0, 0);
   }
 
   fetchData(id) {
-    axios.get(`/api/v1/graph?id=${id}`)
+    axios.get(`/api/v1/graph?id=${id}&stops=1`)
       .then(res => {
         this.updateGraph(res.data);
       });
@@ -70,6 +80,7 @@ class MapPage extends Component<Props> {
     const flexStyle = {
       flex: 1,
     };
+    const graph_id = this.props.match.params.id || 1;
 
     return (
       <div style={paperStyle} id="mainPaper">
@@ -88,11 +99,11 @@ class MapPage extends Component<Props> {
               </defs>
               <Graph ref={(drawing) => this.drawing.ref = drawing} >
                 { this.state.nodes.map(node => (
-                  <Rect key={node.id} data-id={node.id} data-subroutine-id={node.subroutine_id} data-is-symbol={node.is_symbol} data-has-more={Number(node.has_more)} data-is-copy={node.is_copy}
+                  <Rect key={node.id} node={node.id} data-id={node.id} data-subroutine-id={node.subroutine_id} data-is-symbol={node.is_symbol} data-has-more={Number(node.has_more)} data-is-copy={node.is_copy}
                     rx={5} ry={5}
                     style={{
                       fill: node.has_more ? (node.is_symbol ? "url(#gradientPurple)" : "url(#gradientGreen)") : (node.is_symbol ? 'purple' : 'green'),
-                      stroke: 'none',
+                      stroke: node.id == graph_id ? 'red' : 'none',
                       opacity: node.is_copy ? 0.5 : 1.0
                     }}
                     onClick={this.handleNodeClick}
@@ -103,7 +114,12 @@ class MapPage extends Component<Props> {
                   </Rect>
                 ))}
                 { this.state.links.map(link => (
-                  <Edge key={link.id} markerEnd="url(#markerArrow)" source={link.source_id} target={link.target_id} />
+                  <Edge key={link.id} markerEnd="url(#markerArrow)"
+                    source={link.source_id} target={link.target_id}
+                    style={{
+                      stroke: (link.xref == 1 ? 'black' : 'red')
+                    }}
+                  />
                 ))}
               </Graph>
           </svg>
@@ -120,8 +136,8 @@ class MapPage extends Component<Props> {
   }
 
   panTo(x, y) {
-    this.drawing.panX = x;
-    this.drawing.panY = y;
+    this.drawing.panX = x > 0 ? 0 : x;
+    this.drawing.panY = y > 0 ? 0 : y;
     var el = ReactDOM.findDOMNode(this.drawing.ref);
     el.setAttribute("transform", `translate(${this.drawing.panX}, ${this.drawing.panY})`);
   }
@@ -143,19 +159,17 @@ class MapPage extends Component<Props> {
         subroutine_id: 0,
         open_right: false
       });
-      if (has_more) {
-        this.fetchData(id);
-        this.panTo(0, 0);
-      }
+        this.props.history.push(`/map/${id}`);
+        // this.fetchData(id);
+        // this.panTo(0, 0);
     } else {
       this.setState({
         subroutine_id,
         open_right: true
       })
-      if (has_more || is_copy) {
-        this.fetchData(id);
-        this.panTo(0, 0);
-      }
+        this.props.history.push(`/map/${id}`);
+        // this.fetchData(id);
+        // this.panTo(0, 0);
     }
   }
 }

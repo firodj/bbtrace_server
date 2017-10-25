@@ -1,8 +1,10 @@
 /* @flow */
 
 import * as React from 'react';
+import * as d3 from 'd3';
 
 type Props = {
+  node: string,
   x: number,
   y: number,
   width?: number,
@@ -12,9 +14,12 @@ type Props = {
   labelBBox?: Object,
   rx?: number,
   ry?: number,
+  graph?: Object,
 }
 
 class Rect extends React.Component<Props> {
+  labelRef: ?SVGGElement = null;
+
   static defaultProps = {
     x: 0,
     y: 0,
@@ -32,6 +37,8 @@ class Rect extends React.Component<Props> {
       labelBBox,
       children,
       style,
+      graph,
+      node,
       ...props
     } = this.props;
 
@@ -50,11 +57,27 @@ class Rect extends React.Component<Props> {
        ( y - (height / 2)) + ")"}
       {...props} >
       <rect width={width} height={height} rx={rx} ry={ry} style={style} />
-      <g className="label" transform={labelTransform}>
+      <g className="label" transform={labelTransform} ref={(labelRef) => { this.labelRef = labelRef; }}>
         { children }
       </g>
     </g>
     );
+  }
+
+  componentDidMount() {
+    const g = d3.select(this.labelRef);
+    const LABEL_MARGIN = 10;
+
+    const { width, height, node } = this.props;
+    const labelBBox = g.node().getBBox();
+    const labelProps = {
+      labelBBox,
+      width: width || (labelBBox.width + LABEL_MARGIN),
+      height: height || (labelBBox.height + LABEL_MARGIN),
+    };
+
+    const graph = this.props.graph;
+    graph.setNode(node, labelProps);
   }
 }
 
