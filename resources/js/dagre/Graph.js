@@ -3,6 +3,7 @@
 import * as React from 'react';
 import _ from 'lodash';
 import ReactDOM from 'react-dom';
+import PropTypes from 'prop-types';
 
 import Rect from './Rect';
 import Edge from './Edge';
@@ -76,6 +77,12 @@ class Graph extends React.Component<Props> {
     ready: false
   }
 
+  getChildContext() {
+    return {
+      graph: this.graph
+    };
+  }
+
   componentWillMount() {
     // Create a new directed graph
     const graph = new graphlib.Graph();
@@ -92,7 +99,7 @@ class Graph extends React.Component<Props> {
     graph.setDefaultEdgeLabel(function() { return {}; });
 
     this.graph = graph;
-    this.prepareChildren(this.props);
+    //this.prepareChildren(this.props);
   }
 
   componentWillUpdate(nextProps: Props)
@@ -113,10 +120,10 @@ class Graph extends React.Component<Props> {
       if (child.type === Edge) {
         const { source, target } = child.props;
         const key = `${source}-${target}`;
-        edges.push(React.cloneElement(child, { key, graph }));
+        edges.push(React.cloneElement(child, { key }));
       } else { // Rect
         const key = child.props.node;
-        nodes.push(React.cloneElement(child, { key, graph }));
+        nodes.push(React.cloneElement(child, { key }));
       }
     });
 
@@ -126,6 +133,7 @@ class Graph extends React.Component<Props> {
 
   relayout() {
     const graph = this.graph;
+    console.log('relayout');
     layout(graph);
   }
 
@@ -260,12 +268,7 @@ class Graph extends React.Component<Props> {
 
     return (
       <g className="output" {...props}>
-        <g className="nodes">
-          { this.nodes }
-        </g>
-        <g className="edges">
-          { this.edges }
-        </g>
+        { children }
       </g>
     );
   }
@@ -274,6 +277,10 @@ class Graph extends React.Component<Props> {
     this.relayout();
     this.setState({ ready: true });
   }
+}
+
+Graph.childContextTypes = {
+  graph: PropTypes.object
 }
 
 export default Graph;

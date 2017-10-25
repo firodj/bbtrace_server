@@ -1,6 +1,7 @@
 /* @flow */
 
 import * as React from 'react';
+import PropTypes from 'prop-types';
 import * as d3 from 'd3';
 
 type Props = {
@@ -14,11 +15,11 @@ type Props = {
   labelBBox?: Object,
   rx?: number,
   ry?: number,
-  graph?: Object,
 }
 
 class Rect extends React.Component<Props> {
   labelRef: ?SVGGElement = null;
+  labelBBox: ?SVGRect = null;
 
   static defaultProps = {
     x: 0,
@@ -34,19 +35,26 @@ class Rect extends React.Component<Props> {
       ry,
       width,
       height,
-      labelBBox,
       children,
       style,
-      graph,
       node,
       ...props
     } = this.props;
 
-    var labelTransform = null;
+    const nodeLabel = this.context.graph.node(node);
+    if (nodeLabel !== undefined) {
+      width = nodeLabel.width;
+      height = nodeLabel.height;
+      x = nodeLabel.x;
+      y = nodeLabel.y;
+    }
+
     width = width || 0;
     height = height || 0;
 
-    if (labelBBox !== undefined) {
+    var labelTransform = null;
+    const labelBBox = this.labelBBox;
+    if (labelBBox !== null) {
       var labelX = labelBBox.x + width / 2 - labelBBox.width / 2;
       var labelY = -labelBBox.y + height / 2 - labelBBox.height / 2;
       labelTransform="translate(" + labelX + "," + labelY + ")";
@@ -70,16 +78,21 @@ class Rect extends React.Component<Props> {
 
     const { width, height, node } = this.props;
     const labelBBox = g.node().getBBox();
+    this.labelBBox = labelBBox;
+
     const labelProps = {
       labelBBox,
       width: width || (labelBBox.width + LABEL_MARGIN),
       height: height || (labelBBox.height + LABEL_MARGIN),
     };
 
-    const graph = this.props.graph;
+    const graph = this.context.graph;
     graph.setNode(node, labelProps);
   }
 }
 
-export default Rect;
+Rect.contextTypes = {
+  graph: PropTypes.object
+}
 
+export default Rect;

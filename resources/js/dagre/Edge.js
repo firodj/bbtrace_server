@@ -1,6 +1,7 @@
 /* @flow */
 
 import * as React from 'react';
+import PropTypes from 'prop-types';
 import * as d3 from 'd3';
 
 type Props = {
@@ -13,7 +14,6 @@ type Props = {
   children?: React.Node,
   labelBBox?: Object,
   labelpos?: "l" | "c" | "r",
-  graph?: Object
 }
 
 class Edge extends React.Component<Props> {
@@ -29,6 +29,7 @@ class Edge extends React.Component<Props> {
   }
 
   labelRef: ?SVGGElement = null;
+  labelBBox: ?SVGRect = null;
 
   render() {
     var {
@@ -38,15 +39,22 @@ class Edge extends React.Component<Props> {
       source,
       target,
       style,
-      labelBBox,
       children,
-      graph,
       labelpos,
       ...props
     } = this.props;
 
+    const edgeLabel = this.context.graph.edge({v: source, w: target});
+
+    if (edgeLabel !== undefined) {
+      points = edgeLabel.points;
+      x = edgeLabel.x || 0;
+      y = edgeLabel.y || 0;
+    }
+
     var labelTransform = null;
-    if (labelBBox !== undefined) {
+    const labelBBox = this.labelBBox;
+    if (labelBBox !== null) {
       var labelX = labelBBox.x + x - labelBBox.width / 2;
       var labelY = -labelBBox.y + y - labelBBox.height / 2;
       labelTransform="translate(" + labelX + "," + labelY + ")";
@@ -76,6 +84,8 @@ class Edge extends React.Component<Props> {
 
     const { source, target, labelpos } = this.props;
     const labelBBox = g.node().getBBox();
+    this.labelBBox = labelBBox;
+
     const labelProps = {
       labelBBox,
       width: labelBBox.width,
@@ -83,10 +93,14 @@ class Edge extends React.Component<Props> {
       labelpos,
     };
 
-    const graph = this.props.graph;
+    const graph = this.context.graph;
 
     graph.setEdge(source, target, labelProps);
   }
+}
+
+Edge.contextTypes = {
+  graph: PropTypes.object
 }
 
 export default Edge;
