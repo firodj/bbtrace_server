@@ -57,8 +57,7 @@ class MapPage extends Component<Props> {
     this.fetchData(graph_id);
   }
 
-  componentWillReceiveProps(nextProps) {
-    console.log(nextProps);
+  componentWillReceiveProps(nextProps, nextState) {
     this.fetchData(nextProps.match.params.id);
     this.panTo(0, 0);
   }
@@ -99,7 +98,7 @@ class MapPage extends Component<Props> {
               </defs>
               <Graph ref={(drawing) => this.drawing.ref = drawing} >
                 { this.state.nodes.map(node => (
-                  <Rect key={node.id} node={node.id} data-id={node.id} data-subroutine-id={node.subroutine_id} data-is-symbol={node.is_symbol} data-has-more={Number(node.has_more)} data-is-copy={node.is_copy}
+                  <Rect key={node.id} id={node.id} node={node.id} data-id={node.id} data-subroutine-id={node.subroutine_id} data-is-symbol={node.is_symbol} data-has-more={Number(node.has_more)} data-is-copy={node.is_copy}
                     rx={5} ry={5}
                     style={{
                       fill: node.has_more ? (node.is_symbol ? "url(#gradientPurple)" : "url(#gradientGreen)") : (node.is_symbol ? 'purple' : 'green'),
@@ -114,13 +113,13 @@ class MapPage extends Component<Props> {
                   </Rect>
                 ))}
                 { this.state.links.map(link => (
-                  <Edge key={link.id} markerEnd="url(#markerArrow)"
+                  <Edge key={link.id} id={link.id} markerEnd="url(#markerArrow)"
                     source={link.source_id} target={link.target_id}
                     style={{
                       stroke: (link.xref == 1 ? 'black' : 'red')
                     }}
                   />
-                ))}
+                )) }
               </Graph>
           </svg>
         </DraggableCore>
@@ -154,23 +153,20 @@ class MapPage extends Component<Props> {
     const id = e.currentTarget.dataset.id;
     const has_more = e.currentTarget.dataset.hasMore != 0;
 
+    var state = {};
+
     if (is_symbol) {
-      this.setState({
+      state = {
         subroutine_id: 0,
         open_right: false
-      });
-        this.props.history.push(`/map/${id}`);
-        // this.fetchData(id);
-        // this.panTo(0, 0);
+      };
     } else {
-      this.setState({
+      state = {
         subroutine_id,
         open_right: true
-      })
-        this.props.history.push(`/map/${id}`);
-        // this.fetchData(id);
-        // this.panTo(0, 0);
+      };
     }
+    this.props.history.push(`/map/${id}`, state);
   }
 }
 

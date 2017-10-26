@@ -29,14 +29,19 @@ class GraphBuilder
         // getPrevious
         foreach ($first_node->copies as $node) {
             foreach ($node->prevLinks as $link) {
-                $links[] = array_merge($link->toArray(),
-                    ['target_id' => $first_node->id]
-                );
+                $links[] = $link->toArray();
 
                 if ($link->source_id != $first_node->id) { // Skip recursive
                     $nodes[$link->source->id] = array_merge(
                         $link->source->toArray(), [
                             'has_more' => true
+                        ]);
+                }
+
+                if ($link->target_id != $first_node->id) { // Skip recursive
+                    $nodes[$link->target->id] = array_merge(
+                        $link->target->toArray(), [
+                            'has_more' => $link->target->links->count() > 0
                         ]);
                 }
             }

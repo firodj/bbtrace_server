@@ -80,7 +80,7 @@ class Edge extends React.Component<Props> {
     const g = d3.select(this.labelRef);
     const LABEL_MARGIN = 10;
 
-    const { source, target, labelpos } = this.props;
+    const { id, source, target, labelpos } = this.props;
     const labelBBox = g.node().getBBox();
     this.labelBBox = labelBBox;
 
@@ -95,13 +95,11 @@ class Edge extends React.Component<Props> {
 
     graph.setEdge(source, target, labelProps);
     graph.dirty = true;
-
-    // console.log('Edge mounted: ', source, target);
   }
 
   componentDidUpdate() {
     const graph = this.context.graph;
-    const { source, target, labelpos } = this.props;
+    const { id, source, target, labelpos } = this.props;
     const labelProps = graph.edge({v: source, w: target});
     const g = d3.select(this.labelRef);
     const labelBBox = g.node().getBBox();
@@ -109,33 +107,31 @@ class Edge extends React.Component<Props> {
     var width = labelBBox.width;
     var height = labelBBox.height;
 
-    if (width != labelProps.width ||
+    const nextLabelProps = {
+      labelBBox,
+      width: labelBBox.width,
+      height: labelBBox.height,
+      labelpos,
+    };
+
+    if (! labelProps) {
+      console.log('Edge miss updated: #', id, source, target);
+    } else if (width != labelProps.width ||
       height != labelProps.height)
     {
-      const graph = this.context.graph;
-      graph.dirty = false;
-
-      const nextLabelProps = {
-        labelBBox,
-        width: labelBBox.width,
-        height: labelBBox.height,
-        labelpos,
-      };
-
       graph.setEdge(source, target, nextLabelProps);
       graph.dirty = true;
-
-      // console.log('Edge updated: ', source, target);
+      // console.log('Edge changes: #', id, source, target);
     }
   }
 
   componentWillUnmount() {
-    const { source, target } = this.props;
+    const { id, source, target } = this.props;
     const graph = this.context.graph;
     graph.removeEdge(source, target);
     graph.dirty = true;
 
-    // console.log('Edge unmount: ', source, target);
+    // console.log('Edge unmount: #', id, source, target);
   }
 }
 
