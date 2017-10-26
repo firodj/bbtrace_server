@@ -71,7 +71,6 @@ class Graph extends React.Component<Props> {
       layout(graph);
       graph.dirty = false;
       this.graph = graph;
-      console.log( graph.nodes(), graph.edges() );
 
       console.log('relayout');
       this.forceUpdate();

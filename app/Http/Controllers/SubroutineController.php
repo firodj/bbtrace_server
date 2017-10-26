@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\BbAnalyzer;
 use App\Symbol;
+use App\Block;
 use App\Subroutine;
 use App\Reference;
 use Illuminate\Http\Request;
@@ -61,9 +62,9 @@ class SubroutineController extends Controller
                     $aliens[ $flow->id ] = true;
                 }
                 if ($block->jump_mnemonic == 'call') {
-                    $key = sprintf("%s-%s", $flow->id, $block->end);
+                    $key = sprintf("%s-%s", $block->id, $block->end);
                     $links[$key] = [
-                        'source_id' => $flow->id,
+                        'source_id' => $block->id,
                         'target_id' => $block->end,
                         'key' => $key,
                     ];
@@ -130,10 +131,37 @@ class SubroutineController extends Controller
         foreach($aliens as $id => $value) {
             if (! $value) continue;
 
+            $subroutine = Subroutine::find($id);
             $alien = [
                 'id' => $id,
                 'type' => 'unknown'
             ];
+
+            if ($subroutine) {
+                $alien = [
+                    'id' => $id,
+                    'type' => 'subroutine',
+                    'name' => $subroutine->name,
+                ];
+            } else {
+                $symbol = Symbol::with('module')->find($id);
+                if ($symbol) {
+                    $alien = [
+                        'id' => $id,
+                        'type' => 'symbol',
+                        'name' => $symbol->getDisplayName()
+                    ];
+                } else {
+                    $block = Block::with('subroutine')->find($id);
+                    if ($block) {
+                        $alien = [
+                            'id' => $id,
+                            'type' => 'other',
+                            'name' => $block->subroutine->name
+                        ];
+                    }
+                }
+            }
 
             $result['blocks'][] = $alien;
         }

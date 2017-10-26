@@ -33,10 +33,10 @@ const emptyInfo = {
 }
 
 const BlockContent = ({ block }) => {
-  if (block.type == 'block') {
-    const lines = [];
+  const lines = [];
+  lines.push( <tspan key="label" x="0" y="0">{ sprintf("0x%x:", block.id) }</tspan> );
 
-    lines.push( <tspan key="label" x="0" y="0">{ sprintf("0x%x:", block.id) }</tspan> );
+  if (block.type == 'block') {
 
     block.insn.forEach((inst, idx) => {
       const y = (idx + 1) * 10;
@@ -44,19 +44,18 @@ const BlockContent = ({ block }) => {
       lines.push( <tspan key={`row-${idx}-b`} x="60" y={y}>{ inst.op_str }</tspan> );
     });
     // inst.notes
-
-    console.log( lines );
-
     return (
       <text fontSize={8} fill="black">
         { lines }
       </text>
     );
+  } else if (block.type == 'subroutine' || block.type == 'symbol' || block.type == 'other') {
+    lines.push( <tspan key="name" x="60" y="0">{ block.name }</tspan> );
   }
 
   return (
     <text fontSize={8} fill="white">
-      { block.id }
+      { lines }
     </text>
   );
 };
@@ -119,7 +118,16 @@ class SubroutineInfo extends Component<Props, State> {
       block: {
         fill: 'white',
         stroke: 'blue'
-      }
+      },
+      subroutine: {
+        fill: 'green'
+      },
+      symbol: {
+        fill: 'purple'
+      },
+      other: {
+        fill: 'blue'
+      },
     };
 
     return (
@@ -165,6 +173,7 @@ class SubroutineInfo extends Component<Props, State> {
     if (id == 0) {
       return;
     }
+    this.panTo(0, 0);
     axios.get(`/api/v1/subroutine/${id}`)
       .then(res => {
         this.setState({ info: res.data });
