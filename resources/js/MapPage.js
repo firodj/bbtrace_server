@@ -45,19 +45,21 @@ class MapPage extends Component<Props> {
 
   updateGraph(data)
   {
+    const { nodes, links, subroutine_id } = data;
+
     this.setState({
-      nodes: data.nodes,
-      links: data.links
+      nodes,
+      links,
+      subroutine_id
     })
   }
 
   componentDidMount() {
-    // https://bl.ocks.org/mbostock/6123708
     const graph_id = this.props.match.params.id || 1;
     this.fetchData(graph_id);
   }
 
-  componentWillReceiveProps(nextProps, nextState) {
+  componentWillReceiveProps(nextProps) {
     this.fetchData(nextProps.match.params.id);
     this.panTo(0, 0);
   }
@@ -96,7 +98,7 @@ class MapPage extends Component<Props> {
                   <stop offset="100%" stopColor="black"/>
                 </linearGradient>
               </defs>
-              <Graph ref={(drawing) => this.drawing.ref = drawing} >
+              <Graph ref={(drawing) => this.drawing.ref = drawing} rankdir="LR">
                 { this.state.nodes.map(node => (
                   <Rect key={node.id} id={node.id} node={node.id} data-id={node.id} data-subroutine-id={node.subroutine_id} data-is-symbol={node.is_symbol} data-has-more={Number(node.has_more)} data-is-copy={node.is_copy}
                     rx={5} ry={5}
@@ -126,7 +128,7 @@ class MapPage extends Component<Props> {
         <Drawer
           anchor="right"
           type="persistent"
-          open={this.state.open_right}
+          open={true}
         >
           <SubroutineInfo subroutine_id={ this.state.subroutine_id } />
         </Drawer>
@@ -147,26 +149,11 @@ class MapPage extends Component<Props> {
   }
 
   handleNodeClick = (e) => {
-    const is_symbol = e.currentTarget.dataset.isSymbol != 0;
-    const is_copy = e.currentTarget.dataset.isCopy != 0;
-    const subroutine_id = e.currentTarget.dataset.subroutineId; // getAttribute('data-subroutine-id');
     const id = e.currentTarget.dataset.id;
-    const has_more = e.currentTarget.dataset.hasMore != 0;
 
     var state = {};
 
-    if (is_symbol) {
-      state = {
-        subroutine_id: 0,
-        open_right: false
-      };
-    } else {
-      state = {
-        subroutine_id,
-        open_right: true
-      };
-    }
-    this.props.history.push(`/map/${id}`, state);
+    this.props.history.push(`/map/${id}`);
   }
 }
 

@@ -78,6 +78,7 @@ class GraphBuilder
         return [
             'nodes' => array_values($nodes),
             'links' => $links,
+            'subroutine_id' => $first_node->subroutine_id,
         ];
     }
 

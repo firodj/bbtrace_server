@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\BbAnalyzer;
+use App\Symbol;
 use App\Subroutine;
 use App\Reference;
 use Illuminate\Http\Request;
@@ -21,10 +22,58 @@ class SubroutineController extends Controller
 
     public function show(Request $request, $id)
     {
-        $subroutine = Subroutine::with('blocks')->with('blocks.flows')->with('module')->findOrFail($id);
+        $subroutine = Subroutine::with('blocks')->with('module')->find($id);
+
+        if (! $subroutine) {
+            $symbol = Symbol::with('module')->find($id);
+            if ($symbol) {
+                $result = $symbol->toArray();
+                $result['blocks'] = [];
+                $result['links'] = [];
+                return $result;
+            }
+
+            return [
+                'id' => 0,
+                'name' => '',
+                'blocks' => [],
+                'links' => [],
+            ];
+        }
 
         $result = $subroutine->toArray();
-        $subroutine->blocks = $subroutine->blocks->map(function ($block) {
+        $links = [];
+        $aliens = [];
+
+        $result['blocks'] = $subroutine->blocks->map(function ($block) use (&$aliens, &$links) {
+            // mark this block is not alien
+            $aliens[ $block->id ] = false;
+
+            // Form flow
+            foreach($block->nextFlows as $flow) {
+                $key = sprintf("%s-%s", $block->id, $flow->id);
+                $links[$key] = [
+                    'source_id' => $block->id,
+                    'target_id' => $flow->id,
+                    'key' => $key,
+                ];
+                if (! array_key_exists($flow->id, $aliens)) {
+                    $aliens[ $flow->id ] = true;
+                }
+                if ($block->jump_mnemonic == 'call') {
+                    $key = sprintf("%s-%s", $flow->id, $block->end);
+                    $links[$key] = [
+                        'source_id' => $flow->id,
+                        'target_id' => $block->end,
+                        'key' => $key,
+                    ];
+                    if (! array_key_exists($block->end, $aliens)) {
+                        $aliens[ $block->end ] = true;
+                    }
+                }
+            }
+
+            // Form instruction
             $insn = app(BbAnalyzer::class)->disasmBlock($block);
 
             foreach($insn as &$ins) {
@@ -64,15 +113,31 @@ class SubroutineController extends Controller
                         }
                     }
                 }
+
                 if (!empty($notes)) {
                     $ins->notes = '; ' . implode(', ', $notes);
                 }
             }
 
             $block->insn = $insn;
+            $block->type = 'block';
+
             return $block;
         });
 
-        return $subroutine;
+        $result['links'] = array_values($links);
+
+        foreach($aliens as $id => $value) {
+            if (! $value) continue;
+
+            $alien = [
+                'id' => $id,
+                'type' => 'unknown'
+            ];
+
+            $result['blocks'][] = $alien;
+        }
+
+        return $result;
     }
 }

@@ -18,7 +18,6 @@ const LABEL_MARGIN = 10;
 
 class Rect extends React.Component<Props> {
   labelRef: ?SVGGElement = null;
-  labelBBox: ?SVGRect = null;
 
   static defaultProps = {
     style: {},
@@ -40,18 +39,19 @@ class Rect extends React.Component<Props> {
     var y = 0;
 
     const nodeLabel = this.context.graph.node(node);
+    var labelBBox = null;
     if (nodeLabel !== undefined) {
       width = nodeLabel.width;
       height = nodeLabel.height;
       x = nodeLabel.x;
       y = nodeLabel.y;
+      labelBBox = nodeLabel.labelBBox;
     }
 
     width = width || 0;
     height = height || 0;
 
     var labelTransform = null;
-    const labelBBox = this.labelBBox;
     if (labelBBox !== null) {
       var labelX = labelBBox.x + width / 2 - labelBBox.width / 2;
       var labelY = -labelBBox.y + height / 2 - labelBBox.height / 2;

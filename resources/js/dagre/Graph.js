@@ -13,11 +13,21 @@ import graphlib from 'ciena-graphlib';
 
 import * as d3 from 'd3';
 
+type RankDirType = 'TB' | 'BT' | 'LR' | 'RL';
+type RankAlignType = 'UL' | 'UR' | 'DL' | 'DR';
+
 type Props = {
-  children?: React.ChildrenArray<React.Element<any>>
+  children?: React.ChildrenArray<React.Element<any>>,
+  rankdir: RankDirType,
+  rankalign: rankAlignType,
 }
 
 class Graph extends React.Component<Props> {
+  static defaultProps = {
+    rankdir: 'TB',
+    rankalign: 'DR',
+  }
+
   nodes = []
   edges = []
   gLast = {
@@ -39,8 +49,8 @@ class Graph extends React.Component<Props> {
     graph.setGraph({
       marginx: 20, marginy: 20,
       nodesep: 10, edgesep: 2, ranksep: 20,
-      rankdir: 'LR',
-      align: 'DR',
+      rankdir: this.props.rankdir,
+      align: this.props.rankalign,
     });
 
     // Default to assigning a new object as a label for each new edge.
@@ -61,6 +71,7 @@ class Graph extends React.Component<Props> {
       layout(graph);
       graph.dirty = false;
       this.graph = graph;
+      console.log( graph.nodes(), graph.edges() );
 
       console.log('relayout');
       this.forceUpdate();
