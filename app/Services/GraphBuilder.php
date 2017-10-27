@@ -59,7 +59,7 @@ class GraphBuilder
 
                 unset($nodes[$node->id]['copies']);
 
-                if ($stops == 0 && !$node->is_symbol) {
+                if ($stops <= 0 && !$node->is_symbol) {
                     $nodes[$node->id]['has_more'] = $node->links->count() > 0;
                     continue;
                 }

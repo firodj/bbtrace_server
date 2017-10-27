@@ -18,6 +18,7 @@ class Kernel extends ConsoleKernel
         Commands\Backup::class,
         Commands\Restore::class,
         Commands\Graph::class,
+        Commands\AnalyzeSubroutine::class,
     ];
 
     /**
