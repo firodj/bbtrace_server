@@ -11,6 +11,13 @@ class JccMne extends BaseMnemonic
         $state = $this->state;
         $operands = $this->operands;
 
+        return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+
         $else = $this->ins->address + count($this->ins->bytes);
 
         switch ($this->ins->mnemonic) {
@@ -36,8 +43,7 @@ class JccMne extends BaseMnemonic
             dump($this->ins);
             throw new Exception($this->ins->mnemonic);
         }
-        printf("if (%s) goto %s else goto 0x%x\n", $content, $operands[0]->toString(['hex']), $else);
 
-        return $state;
+        return sprintf("if (%s) goto %s else goto 0x%x", $content, $operands[0]->toString(['hex']), $else);
     }
 }

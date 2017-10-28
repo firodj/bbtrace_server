@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Subroutine;
+use App\Code;
 use App\Block;
 use App\Symbol;
 use App\Decompiler;
@@ -11,9 +12,13 @@ use Exception;
 
 class SubroutineAnalyzer
 {
+    public $subroutine_id;
+    public $block_id;
+
     public function analyze(int $subroutine_id)
     {
         $subroutine = Subroutine::findOrFail($subroutine_id);
+        $this->subroutine_id;
 
         printf("Analyze subs: 0x%x %s\n", $subroutine->id, $subroutine->name);
 
@@ -93,56 +98,67 @@ class SubroutineAnalyzer
         return $return_states;
     }
 
-    function analyzeBlock($block, $state)
+    public function analyzeBlock($block, $state)
     {
+        $this->block_id = $block->id;
+
         // Form instruction
         $insn = app(BbAnalyzer::class)->disasmBlock($block);
         foreach($insn as &$ins) {
             //printf("\t0x%x %s %s\n", $ins->address, $ins->mnemonic, $ins->op_str);
+            $mne = null;
 
             switch ($ins->mnemonic) {
             case 'push':
-                $state = (new Decompiler\PushMne($ins, $state))->process();
+                $mne = new Decompiler\PushMne($ins, $state, $this);
                 break;
             case 'pop':
-                $state = (new Decompiler\PopMne($ins, $state))->process();
+                $mne = new Decompiler\PopMne($ins, $state, $this);
                 break;
             case 'mov':
-                $state = (new Decompiler\MovMne($ins, $state))->process();
+                $mne = new Decompiler\MovMne($ins, $state, $this);
                 break;
             case 'sub':
-                $state = (new Decompiler\SubMne($ins, $state))->process();
+                $mne = new Decompiler\SubMne($ins, $state, $this);
                 break;
             case 'lea':
-                $state = (new Decompiler\LeaMne($ins, $state))->process();
+                $mne = new Decompiler\LeaMne($ins, $state, $this);
                 break;
             case 'or':
-                $state = (new Decompiler\OrMne($ins, $state))->process();
+                $mne = new Decompiler\OrMne($ins, $state, $this);
                 break;
             case 'cmp':
-                $state = (new Decompiler\CmpMne($ins, $state))->process();
+                $mne = new Decompiler\CmpMne($ins, $state, $this);
                 break;
             case 'je':
             case 'jne':
             case 'jle':
             case 'ja':
             case 'jg':
-                $state = (new Decompiler\JccMne($ins, $state))->process();
+                $mne = new Decompiler\JccMne($ins, $state, $this);
                 break;
             case 'jmp':
-                $state = (new Decompiler\JmpMne($ins, $state))->process();
+                $mne = new Decompiler\JmpMne($ins, $state, $this);
                 break;
             case 'sar':
-                $state = (new Decompiler\SarMne($ins, $state))->process();
+                $mne = new Decompiler\SarMne($ins, $state, $this);
                 break;
             case 'ret':
-                $state = (new Decompiler\RetMne($ins, $state))->process();
+                $mne = new Decompiler\RetMne($ins, $state, $this);
                 break;
             default:
                 throw new Exception("Invalid ".$ins->mnemonic);
             }
+
+            $state = $mne->process();
+            printf("%s\n", $mne);
         }
 
         return $state;
+    }
+
+    public function emit($id, $codes, $params)
+    {
+
     }
 }

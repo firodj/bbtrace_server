@@ -62,15 +62,15 @@ class MemOpnd extends BaseOperand
 
     public function toString($options = []) {
         if ($this->isVar()) {
-            $content = sprintf("var_%d", -$this->var);
+            $content = sprintf("*ptr_var_%d", -$this->var);
         } else if ($this->isArg()) {
             if ($this->var >= 4) {
-                $content = sprintf("arg_%d", $this->var - 4);
+                $content = sprintf("*ptr_arg_%d", $this->var - 4);
             } else {
-                $content = sprintf("ret_%d", $this->var);
+                $content = sprintf("*ptr_ret_%d", $this->var);
             }
         } else {
-            $content = sprintf("global(%s)", $this->getContent());
+            $content = sprintf("*(%s)", $this->getContent());
         }
         if ($this->size == 4) {
             return sprintf("(dword)%s", $content);

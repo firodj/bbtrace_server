@@ -11,8 +11,12 @@ class MovMne extends BaseMnemonic
         $state = $this->state;
         $operands = $this->operands;
 
-        printf("%s = %s\n", $operands[0], $operands[1]);
-
         return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+        return sprintf("%s = %s", $operands[0], $operands[1]);
     }
 }

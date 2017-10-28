@@ -11,16 +11,24 @@ class RetMne extends BaseMnemonic
         $state = $this->state;
         $operands = $this->operands;
 
-        printf("return");
         if ($operands[0] instanceof ImmOpnd) {
             $state->esp += $operands[0]->imm;
-            printf(" then pop(%s)\n", $operands[0]);
+        }
+
+        return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+
+        $s = "return";
+        if ($operands[0] instanceof ImmOpnd) {
+            $s .= sprintf(" then pop(%s)", $operands[0]);
         } else {
             throw new Exception();
         }
 
-        printf("\n");
-
-        return $state;
+        return $s;
     }
 }

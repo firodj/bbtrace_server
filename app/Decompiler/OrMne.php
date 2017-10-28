@@ -11,15 +11,25 @@ class OrMne extends BaseMnemonic
         $state = $this->state;
         $operands = $this->operands;
 
+        return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+
         if ($operands[1] instanceof ImmOpnd) {
             if ($operands[1]->imm == 0xffffffff) {
-                printf("%s = -1\n", $operands[0], $operands[1]);
-                return $state;
+                if ($operands[0] instanceof RegOpnd) {
+                    if (($k = array_search($operands[0]->reg, $this->reads)) !== false){
+                        unset($this->reads[$k]);
+                    }
+                }
+
+                return sprintf("%s = -1", $operands[0], $operands[1]);
             }
         }
 
-        printf("%s |= %s\n", $operands[0], $operands[1]);
-
-        return $state;
+        return sprintf("%s = %s | %s", $operands[0], $operands[0], $operands[1]);
     }
 }

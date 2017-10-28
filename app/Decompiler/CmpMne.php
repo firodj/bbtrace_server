@@ -11,7 +11,6 @@ class CmpMne extends BaseMnemonic
         $state = $this->state;
         $operands = $this->operands;
 
-        printf("cmp(%s, %s)\n", $operands[0], $operands[1]);
         // printf("zf = %s == %s\n", $operands[0], $operands[1]);
         // printf("cf = (unsigned)%s < (unsigned)%s\n", $operands[0], $operands[1]);
         // printf("sf = (signed)((unsigned)%s - (unsigned)%s) < 0\n", $operands[0], $operands[1]);
@@ -20,5 +19,11 @@ class CmpMne extends BaseMnemonic
         // printf("// af\n");
 
         return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+        return sprintf("cmp(%s, %s)", $operands[0], $operands[1]);
     }
 }

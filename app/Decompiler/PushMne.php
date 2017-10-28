@@ -12,12 +12,17 @@ class PushMne extends BaseMnemonic
         // change esp first, then push
         $state->esp -= 4;
 
+        return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+
         if ($operands[0] instanceof RegOpnd) {
-            printf("push(%s)\n", $operands[0]->reg);
+            return sprintf("push(%s)", $operands[0]->reg);
         } else {
             throw new Exception();
         }
-
-        return $state;
     }
 }

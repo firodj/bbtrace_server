@@ -15,8 +15,13 @@ class JmpMne extends BaseMnemonic
             throw new Exception();
         }
 
-        printf("goto %s\n", $operands[0]->toString(['hex']));
-
         return $state;
+    }
+
+    public function toString($options = [])
+    {
+        $operands = $this->operands;
+
+        return sprintf("goto %s", $operands[0]->toString(['hex']));
     }
 }
