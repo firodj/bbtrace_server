@@ -5,11 +5,10 @@ namespace App\Decompiler;
 class ImmOpnd extends BaseOperand
 {
     public $imm;
-    public $size;
 
     public function __construct($imm, $size) {
+        parent::__construct($size);
         $this->imm = $imm;
-        $this->size = $size;
     }
 
     public function toString($options = [])

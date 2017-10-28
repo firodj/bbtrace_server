@@ -4,13 +4,12 @@ namespace App\Decompiler;
 
 class PushMne extends BaseMnemonic
 {
-    public function process()
+    public function process($state)
     {
-        $state = $this->state;
         $operands = $this->operands;
 
         // change esp first, then push
-        $state->esp -= 4;
+        $state->pushStack($operands[0]);
 
         return $state;
     }

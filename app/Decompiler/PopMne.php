@@ -4,13 +4,12 @@ namespace App\Decompiler;
 
 class PopMne extends BaseMnemonic
 {
-    public function process()
+    public function process($state)
     {
-        $state = $this->state;
         $operands = $this->operands;
 
         // pop, then change esp
-        $state->esp += 4;
+        $opnd = $state->popStack();
 
         return $state;
     }

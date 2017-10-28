@@ -8,10 +8,10 @@ class MemOpnd extends BaseOperand
     public $index;
     public $scale;
     public $disp;
-    public $size;
     public $var;
 
     public function __construct($base, $index, $scale, $disp, $size, $esp) {
+        parent::__construct($size);
         $this->base = $base;
         $this->index = $index;
         $this->scale = $scale;

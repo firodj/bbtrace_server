@@ -6,9 +6,8 @@ use Exception;
 
 class SarMne extends BaseMnemonic
 {
-    public function process()
+    public function process($state)
     {
-        $state = $this->state;
         $operands = $this->operands;
 
         return $state;

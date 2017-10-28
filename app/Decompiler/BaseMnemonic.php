@@ -7,26 +7,24 @@ use Exception;
 abstract class BaseMnemonic
 {
     public $ins;
-    public $state;
     public $operands;
     public $detail;
-    public $analyzer;
     public $writes;
     public $reads;
+    public $block_id;
+    public $ast;
 
-    public function __construct($ins, $state, $analyzer)
+    public function __construct($block_id, $ins)
     {
         $this->ins = $ins;
-        $this->state = $state;
-        $this->analyzer = $analyzer;
         $this->reads = [];
         $this->writes = [];
         $this->detail = $ins->detail->x86;
-        $this->createOperands();
-        $this->detectChanges();
+        $this->block_id = $block_id;
+        $this->ast = [];
     }
 
-    abstract public function process();
+    abstract public function process($state);
 
     abstract function toString($options = []);
 
@@ -40,7 +38,7 @@ abstract class BaseMnemonic
         return $s;
     }
 
-    protected function detectChanges()
+    public function detectReadsWrites()
     {
         foreach ($this->operands as $opnd) {
             if ($opnd instanceof RegOpnd) {
@@ -65,16 +63,15 @@ abstract class BaseMnemonic
         $eflags = $this->detail->eflags;
         $this->writes += $eflags->modify + $eflags->reset + $eflags->set;
         $this->reads += $eflags->test;
-        
+
         if (! empty($eflags->prior)) {
             throw new Exception("eflags prior has: ". implode(',', $eflags->prior));
         }
     }
 
-    protected function createOperands()
+    public function createOperands($state)
     {
         $operands = $this->ins->detail->x86->operands;
-        $state = $this->state;
         $this->operands = [];
 
         foreach($operands as $opnd) {
@@ -117,5 +114,4 @@ abstract class BaseMnemonic
             $this->operands[] = $operand;
         }
     }
-
 }

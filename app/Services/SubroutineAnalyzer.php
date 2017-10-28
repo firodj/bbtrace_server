@@ -13,7 +13,7 @@ use Exception;
 class SubroutineAnalyzer
 {
     public $subroutine_id;
-    public $block_id;
+    public $reg_versions = [];
 
     public function analyze(int $subroutine_id)
     {
@@ -100,8 +100,6 @@ class SubroutineAnalyzer
 
     public function analyzeBlock($block, $state)
     {
-        $this->block_id = $block->id;
-
         // Form instruction
         $insn = app(BbAnalyzer::class)->disasmBlock($block);
         foreach($insn as &$ins) {
@@ -110,55 +108,54 @@ class SubroutineAnalyzer
 
             switch ($ins->mnemonic) {
             case 'push':
-                $mne = new Decompiler\PushMne($ins, $state, $this);
+                $mne = new Decompiler\PushMne($block->id, $ins);
                 break;
             case 'pop':
-                $mne = new Decompiler\PopMne($ins, $state, $this);
+                $mne = new Decompiler\PopMne($block->id, $ins);
                 break;
             case 'mov':
-                $mne = new Decompiler\MovMne($ins, $state, $this);
+                $mne = new Decompiler\MovMne($block->id, $ins);
                 break;
             case 'sub':
-                $mne = new Decompiler\SubMne($ins, $state, $this);
+                $mne = new Decompiler\SubMne($block->id, $ins);
                 break;
             case 'lea':
-                $mne = new Decompiler\LeaMne($ins, $state, $this);
+                $mne = new Decompiler\LeaMne($block->id, $ins);
                 break;
             case 'or':
-                $mne = new Decompiler\OrMne($ins, $state, $this);
+                $mne = new Decompiler\OrMne($block->id, $ins);
                 break;
             case 'cmp':
-                $mne = new Decompiler\CmpMne($ins, $state, $this);
+                $mne = new Decompiler\CmpMne($block->id, $ins);
                 break;
             case 'je':
             case 'jne':
             case 'jle':
             case 'ja':
             case 'jg':
-                $mne = new Decompiler\JccMne($ins, $state, $this);
+                $mne = new Decompiler\JccMne($block->id, $ins);
                 break;
             case 'jmp':
-                $mne = new Decompiler\JmpMne($ins, $state, $this);
+                $mne = new Decompiler\JmpMne($block->id, $ins);
                 break;
             case 'sar':
-                $mne = new Decompiler\SarMne($ins, $state, $this);
+                $mne = new Decompiler\SarMne($block->id, $ins);
                 break;
             case 'ret':
-                $mne = new Decompiler\RetMne($ins, $state, $this);
+                $mne = new Decompiler\RetMne($block->id, $ins);
                 break;
             default:
                 throw new Exception("Invalid ".$ins->mnemonic);
             }
 
-            $state = $mne->process();
+            $mne->createOperands($state);
+            $mne->detectReadsWrites();
+            $state = $mne->process($state);
+            $state->checkReadsWrites($mne);
+
             printf("%s\n", $mne);
         }
 
         return $state;
-    }
-
-    public function emit($id, $codes, $params)
-    {
-
     }
 }

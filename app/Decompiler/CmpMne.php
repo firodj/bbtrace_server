@@ -6,9 +6,8 @@ use Exception;
 
 class CmpMne extends BaseMnemonic
 {
-    public function process()
+    public function process($state)
     {
-        $state = $this->state;
         $operands = $this->operands;
 
         // printf("zf = %s == %s\n", $operands[0], $operands[1]);

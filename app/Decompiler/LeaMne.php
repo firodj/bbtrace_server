@@ -8,9 +8,8 @@ class LeaMne extends BaseMnemonic
 {
     public $is_nop = false;
 
-    public function process()
+    public function process($state)
     {
-        $state = $this->state;
         $operands = $this->operands;
 
         if (!($operands[1] instanceof MemOpnd)) {
