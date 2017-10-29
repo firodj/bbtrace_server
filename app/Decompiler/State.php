@@ -5,6 +5,9 @@ namespace App\Decompiler;
 class State
 {
     public $esp;
+    public $arg;
+    public $block_id;
+
     public $reg_changes = [];
 
     public $esp_stack = [];
@@ -12,6 +15,8 @@ class State
     public function __construct()
     {
         $this->esp = 0;
+        $this->arg = 0;
+        $this->block_id = null;
     }
 
     public function checkReadsWrites($mne, $analyzer)
@@ -92,5 +97,15 @@ class State
         $this->esp += 4;
 
         return $opnd;
+    }
+
+    public function toArray()
+    {
+        return [
+            'esp' => $this->esp,
+            'arg' => $this->arg,
+            'block_id' => $this->block_id,
+            'reg_changes' => $this->reg_changes,
+        ];
     }
 }

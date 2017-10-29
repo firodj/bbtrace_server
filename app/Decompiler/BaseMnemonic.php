@@ -30,23 +30,26 @@ abstract class BaseMnemonic
 
     abstract function toString($options = []);
 
+    public function getReads() {
+        $reads = [];
+        foreach ($this->reads as $reg => $opnd) {
+            // RegOpnd and FlagOpnd
+            $reads[] = (string) $opnd;
+        }
+        return $reads;
+    }
+    public function getWrites() {
+        $writes = [];
+        foreach ($this->writes as $reg => $opnd) {
+            // RegOpnd and FlagOpnd
+            $writes[] = (string) $opnd;
+        }
+        return $writes;
+    }
+
     public function __toString()
     {
-        $s = $this->toString();
-
-        $s .= '  // w=(';
-        foreach ($this->writes as $reg => $opnd) {
-            $s .= sprintf(' %s@%d', $reg, $opnd->rev);
-        }
-        $s .= ' )';
-
-        $s .= ' r=(';
-        foreach ($this->reads as $reg => $opnd) {
-            $s .= sprintf(' %s@%d', $reg, $opnd->rev);
-        }
-        $s .= ' )';
-
-        return $s;
+        return $this->toString();
     }
 
     public function detectReadsWrites()
@@ -80,14 +83,18 @@ abstract class BaseMnemonic
         $eflags = $this->detail->eflags;
         foreach ($eflags->test as $f) {
             if (! array_key_exists($f, $this->reads)) {
-                $this->reads[$f] = (object)['flag' => $f, 'rev' => null, 'is_read' => true];
+                $opnd = new FlagOpnd($f);
+                $opnd->is_read = true;
+                $this->reads[$f] = $opnd;
             }
 
         }
         $flag_writes = $eflags->modify + $eflags->reset + $eflags->set;
         foreach($flag_writes as $f) {
             if (! array_key_exists($f, $this->writes)) {
-                $this->writes[$f] = (object)['flag' => $f, 'rev' => null, 'is_write' => true];
+                $opnd = new FlagOpnd($f);
+                $opnd->is_write = true;
+                $this->writes[$f] = $opnd;
             }
         }
 
@@ -121,6 +128,9 @@ abstract class BaseMnemonic
                     $opnd->size,
                     $state->esp
                 );
+                if ($operand->isArg() && ($state->arg < $operand->var)) {
+                    $state->arg = $operand->var;
+                }
                 break;
             case 'imm':
                 $operand = new ImmOpnd($opnd->imm, $opnd->size);

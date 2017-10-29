@@ -16,6 +16,10 @@ class Block extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'codes' => 'array',
+    ];
+
     public function module()
     {
         return $this->belongsTo(Module::class);

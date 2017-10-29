@@ -41,15 +41,13 @@ class SubroutineAnalyzer
         while ($trace_item = array_pop($traces)) {
             $block_id = $trace_item->block_id;
             $state = clone $trace_item->state;
+            $state->block_id = $block_id;
 
             if (in_array($block_id, $visits)) continue;
 
             array_push($visits, $block_id);
 
             if (array_key_exists($block_id, $blocks)) {
-
-                printf("0x%x:\n", $block_id);
-
                 $block = $blocks[$block_id];
                 $state = $this->analyzeBlock($block, $state);
 
@@ -64,8 +62,6 @@ class SubroutineAnalyzer
                 if ($block->jump_mnemonic == 'ret') {
                     $return_states[] = clone $state;
                 }
-
-                printf("------\n\n");
             } else {
                 $block = Block::find($block_id);
                 if ($block) {
@@ -89,19 +85,53 @@ class SubroutineAnalyzer
             }
         }
 
-        dump($return_states);
+        $returns = array_map(function ($return_state) use(&$subroutine) {
+            if (is_null($subroutine->esp)) {
+                $subroutine->esp = $return_state->esp;
+            } else if ($subroutine->esp != $return_state->esp) {
+                throw new Exception('ESP different each returns');
+            }
+            if (is_null($subroutine->arg) || ($subroutine->arg < $return_state->arg)) {
+                $subroutine->arg = $return_state->arg;
+            }
+            return $return_state->toArray();
+        }, $return_states);
+
+        $subroutine->returns = $returns;
+        $subroutine->save();
+
+        foreach($this->mnemonics as $block_id => $mnemonics) {
+            $codes = [];
+            $block = Block::findOrFail($block_id);
+
+            printf("0x%x:\n", $block_id);
+
+            foreach($mnemonics as $address => $mne) {
+                $codes[] = (object)[
+                    'address' => $address,
+                    'code' => (string) $mne,
+                    'writes' => $mne->getWrites(),
+                    'reads' => $mne->getReads(),
+                ];
+            }
+
+            dump($codes);
+
+            $block->codes = $codes;
+            $block->save();
+
+            printf("------\n\n");
+        }
+
+        dump($returns);
 
         foreach($this->reg_revisions as $reg => $revisions) {
             foreach ($revisions as $rev => $revision) {
+                // dump($revision);
                 printf("%s@%d used:%d\t", $reg, $rev, count($revision->read_by));
             }
         }
-
-        if ($return_states[0]->esp > 0) {
-            printf("STDCALL\n");
-        } else {
-            printf("CDECL\n");
-        }
+        // printf(($subroutine->esp > 0) ? "STDCALL" : "CDECL");
 
         return $return_states;
     }
@@ -160,10 +190,15 @@ class SubroutineAnalyzer
             $state = $mne->process($state);
             $state->checkReadsWrites($mne, $this);
 
-            // FIXME: will duplicate on block overlap
-            $this->mnemonics[$ins->address] = $mne;
+            if ($mne instanceof Decompiler\JccMne) {
+                $mne->afterProcess($block, $this);
+            }
 
-            printf("%s\n", $mne);
+            if (!isset($this->mnemonics[ $block->id ])) {
+                $this->mnemonics[$block->id] = [];
+            }
+
+            $this->mnemonics[$block->id][$ins->address] = $mne;
         }
 
         return $state;

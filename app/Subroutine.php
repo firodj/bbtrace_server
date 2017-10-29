@@ -11,6 +11,10 @@ class Subroutine extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'returns' => 'array',
+    ];
+
     public function module()
     {
         return $this->belongsTo(Module::class);
