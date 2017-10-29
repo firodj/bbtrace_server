@@ -13,7 +13,8 @@ use Exception;
 class SubroutineAnalyzer
 {
     public $subroutine_id;
-    public $reg_versions = [];
+    public $reg_revisions = [];
+    public $mnemonics = [];
 
     public function analyze(int $subroutine_id)
     {
@@ -89,6 +90,13 @@ class SubroutineAnalyzer
         }
 
         dump($return_states);
+
+        foreach($this->reg_revisions as $reg => $revisions) {
+            foreach ($revisions as $rev => $revision) {
+                printf("%s@%d used:%d\t", $reg, $rev, count($revision->read_by));
+            }
+        }
+
         if ($return_states[0]->esp > 0) {
             printf("STDCALL\n");
         } else {
@@ -103,7 +111,6 @@ class SubroutineAnalyzer
         // Form instruction
         $insn = app(BbAnalyzer::class)->disasmBlock($block);
         foreach($insn as &$ins) {
-            //printf("\t0x%x %s %s\n", $ins->address, $ins->mnemonic, $ins->op_str);
             $mne = null;
 
             switch ($ins->mnemonic) {
@@ -151,7 +158,10 @@ class SubroutineAnalyzer
             $mne->createOperands($state);
             $mne->detectReadsWrites();
             $state = $mne->process($state);
-            $state->checkReadsWrites($mne);
+            $state->checkReadsWrites($mne, $this);
+
+            // FIXME: will duplicate on block overlap
+            $this->mnemonics[$ins->address] = $mne;
 
             printf("%s\n", $mne);
         }

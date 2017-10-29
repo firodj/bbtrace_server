@@ -19,10 +19,12 @@ class LeaMne extends BaseMnemonic
         if ($operands[1]->isOne()) {
             if ($operands[1]->base->reg == $operands[0]->reg) {
                 $this->is_nop = true;
-                if (($k = array_search($operands[0]->reg, $this->writes)) !== false){
+                $k = $operands[0]->reg;
+                if (isset($this->writes[$k])) {
                     unset($this->writes[$k]);
                 }
-                if (($k = array_search($operands[1]->base->reg, $this->reads)) !== false){
+                $k = $operands[1]->base->reg;
+                if (isset($this->reads[$k])) {
                     unset($this->reads[$k]);
                 }
 
@@ -35,11 +37,12 @@ class LeaMne extends BaseMnemonic
     public function toString($options = [])
     {
         $operands = $this->operands;
+        $outputs = $this->outputs;
 
         if ($this->is_nop) {
             return "// nop";
         }
 
-        return sprintf("%s = %s", $operands[0], $operands[1]->getContent());
+        return sprintf("%s = %s", $outputs[$operands[0]->reg], $operands[1]->getContent());
     }
 }

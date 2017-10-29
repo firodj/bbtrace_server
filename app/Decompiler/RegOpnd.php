@@ -13,6 +13,9 @@ class RegOpnd extends BaseOperand
 
     public function toString($options = [])
     {
-        return $this->reg;
+        if (is_null($this->rev)) {
+            return sprintf("%s@?", $this->reg);
+        }
+        return sprintf("%s@%d", $this->reg, $this->rev);
     }
 }

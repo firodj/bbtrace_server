@@ -8,6 +8,7 @@ abstract class BaseMnemonic
 {
     public $ins;
     public $operands;
+    public $outputs;
     public $detail;
     public $writes;
     public $reads;
@@ -19,6 +20,7 @@ abstract class BaseMnemonic
         $this->ins = $ins;
         $this->reads = [];
         $this->writes = [];
+        $this->outputs = [];
         $this->detail = $ins->detail->x86;
         $this->block_id = $block_id;
         $this->ast = [];
@@ -32,8 +34,17 @@ abstract class BaseMnemonic
     {
         $s = $this->toString();
 
-        $s .= ' w:'.json_encode($this->writes);
-        $s .= ' r:'.json_encode($this->reads);
+        $s .= '  // w=(';
+        foreach ($this->writes as $reg => $opnd) {
+            $s .= sprintf(' %s@%d', $reg, $opnd->rev);
+        }
+        $s .= ' )';
+
+        $s .= ' r=(';
+        foreach ($this->reads as $reg => $opnd) {
+            $s .= sprintf(' %s@%d', $reg, $opnd->rev);
+        }
+        $s .= ' )';
 
         return $s;
     }
@@ -42,27 +53,43 @@ abstract class BaseMnemonic
     {
         foreach ($this->operands as $opnd) {
             if ($opnd instanceof RegOpnd) {
-                if ($opnd->is_write) {
-                    $this->writes[] = $opnd->reg;
-                }
                 if ($opnd->is_read) {
-                    $this->reads[] = $opnd->reg;
+                    $this->reads[$opnd->reg] = $opnd;
+                }
+                if ($opnd->is_write) {
+                    $opnd->is_write = false;
+
+                    $opnd2 = clone $opnd;
+                    $opnd2->is_read = false;
+
+                    $this->outputs[$opnd2->reg] = $opnd2;
+                    $this->writes[$opnd2->reg] = $opnd2;
                 }
             }
 
             if ($opnd instanceof MemOpnd) {
                 if ($opnd->base instanceof RegOpnd) {
-                    $this->reads[] = $opnd->base->reg;
+                    $this->reads[$opnd->base->reg] = $opnd->base;
                 }
                 if ($opnd->index instanceof RegOpnd) {
-                    $this->reads[] = $opnd->index->reg;
+                    $this->reads[$opnd->index->reg] = $opnd->index;
                 }
             }
         }
 
         $eflags = $this->detail->eflags;
-        $this->writes += $eflags->modify + $eflags->reset + $eflags->set;
-        $this->reads += $eflags->test;
+        foreach ($eflags->test as $f) {
+            if (! array_key_exists($f, $this->reads)) {
+                $this->reads[$f] = (object)['flag' => $f, 'rev' => null, 'is_read' => true];
+            }
+
+        }
+        $flag_writes = $eflags->modify + $eflags->reset + $eflags->set;
+        foreach($flag_writes as $f) {
+            if (! array_key_exists($f, $this->writes)) {
+                $this->writes[$f] = (object)['flag' => $f, 'rev' => null, 'is_write' => true];
+            }
+        }
 
         if (! empty($eflags->prior)) {
             throw new Exception("eflags prior has: ". implode(',', $eflags->prior));

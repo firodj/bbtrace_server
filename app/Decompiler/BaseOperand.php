@@ -14,7 +14,7 @@ abstract class BaseOperand
     public function __construct($size)
     {
         $this->size = $size;
-        $this->rev = -1;
+        $this->rev = null;
     }
 
     public function __toString()

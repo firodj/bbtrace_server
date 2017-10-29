@@ -6,9 +6,22 @@ use Exception;
 
 class OrMne extends BaseMnemonic
 {
+    var $as_mov = null;
+
     public function process($state)
     {
         $operands = $this->operands;
+
+        if ($operands[1] instanceof ImmOpnd) {
+            if ($operands[1]->imm == 0xffffffff) {
+                $this->as_mov = $operands[1];
+
+                if ($operands[0] instanceof RegOpnd) {
+                    $k = $operands[0]->reg;
+                    unset($this->reads[$k]);
+                }
+            }
+        }
 
         return $state;
     }
@@ -16,19 +29,12 @@ class OrMne extends BaseMnemonic
     public function toString($options = [])
     {
         $operands = $this->operands;
+        $outputs = $this->outputs;
 
-        if ($operands[1] instanceof ImmOpnd) {
-            if ($operands[1]->imm == 0xffffffff) {
-                if ($operands[0] instanceof RegOpnd) {
-                    if (($k = array_search($operands[0]->reg, $this->reads)) !== false){
-                        unset($this->reads[$k]);
-                    }
-                }
-
-                return sprintf("%s = -1", $operands[0], $operands[1]);
-            }
+        if ($this->as_mov) {
+            return sprintf("%s = -1", $outputs[$operands[0]->reg], $this->as_mov);
         }
 
-        return sprintf("%s = %s | %s", $operands[0], $operands[0], $operands[1]);
+        return sprintf("%s = %s | %s", $outputs[$operands[0]->reg], $operands[0], $operands[1]);
     }
 }

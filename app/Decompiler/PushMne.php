@@ -19,7 +19,7 @@ class PushMne extends BaseMnemonic
         $operands = $this->operands;
 
         if ($operands[0] instanceof RegOpnd) {
-            return sprintf("push(%s)", $operands[0]->reg);
+            return sprintf("push(%s)", $operands[0]);
         } else {
             throw new Exception();
         }
