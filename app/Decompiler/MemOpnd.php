@@ -2,6 +2,8 @@
 
 namespace App\Decompiler;
 
+use Exception;
+
 class MemOpnd extends BaseOperand
 {
     public $base;
@@ -61,6 +63,8 @@ class MemOpnd extends BaseOperand
     }
 
     public function toString($options = []) {
+        if (isset($this->display_name)) return $this->display_name;
+
         if ($this->isVar()) {
             $content = sprintf("*ptr_var_%d", -$this->var);
         } else if ($this->isArg()) {
@@ -69,9 +73,17 @@ class MemOpnd extends BaseOperand
             } else {
                 $content = sprintf("*ptr_ret_%d", $this->var);
             }
+        } else if ($this->isMem()) {
+            $content = sprintf("*data_%x", $this->disp);
         } else {
             $content = sprintf("*(%s)", $this->getContent());
         }
+        if ($this->size == 1) {
+            return sprintf("(byte)%s", $content);
+        } else
+        if ($this->size == 2) {
+            return sprintf("(word)%s", $content);
+        } else 
         if ($this->size == 4) {
             return sprintf("(dword)%s", $content);
         }

@@ -12,6 +12,8 @@ class JccMne extends BaseMnemonic
     public $then = null;
     public $else = null;
     public $branch_taken = [];
+    public $cmp_mne;
+    public $flag_condition = null;
 
     public function process($state)
     {
@@ -28,10 +30,12 @@ class JccMne extends BaseMnemonic
         case 'je':
         case 'jz':
             $this->condition = "==";
+            $this->flag_condition = '@zf == 1';
             break;
         case 'jne':
         case 'jnz':
             $this->condition = "!=";
+            $this->flag_condition = '@zf == 0';
             break;
         case 'jle':
             $this->condition = "<=";
@@ -44,6 +48,15 @@ class JccMne extends BaseMnemonic
         case 'ja':
         case 'jnbe':
             $this->condition = ">";
+            $this->is_signed = false;
+            break;
+        case 'jbe':
+            $this->condition = "<=";
+            $this->is_signed = false;
+            $this->flag_condition = '@cf == 1 | @zf == 1';
+            break;
+        case 'jb':
+            $this->condition = "<";
             $this->is_signed = false;
             break;
         default:
@@ -90,10 +103,13 @@ class JccMne extends BaseMnemonic
 
         if ($cmp_by) {
             $cmp_mne = $analyzer->mnemonics[$cmp_by->block_id][$cmp_by->address];
-            if ($cmp_mne->ins->mnemonic != 'cmp') throw new Exception();
-
-            $this->operands[1] = $cmp_mne->operands[0];
-            $this->operands[2] = $cmp_mne->operands[1];
+            if ($cmp_mne instanceof CmpMne || $cmp_mne instanceof TestMne) {
+                $this->cmp_mne = $cmp_mne;
+                $this->operands[1] = $cmp_mne->operands[0];
+                $this->operands[2] = $cmp_mne->operands[1];
+            } else {
+                throw new Exception();
+            }
         }
     }
 
@@ -104,13 +120,30 @@ class JccMne extends BaseMnemonic
         $sign = is_null($this->is_signed) ? '' :
             ($this->is_signed === true ? '(signed)' : '(unsigned)');
 
-        $logical = sprintf("%s%s %s %s%s",
-            $sign,
-            $this->operands[1] ?? 'a',
-            $this->condition,
-            $sign,
-            $this->operands[2] ?? 'b'
-        );
+
+        if ($this->cmp_mne instanceof CmpMne) {
+            $logical = sprintf("%s%s %s %s%s",
+                $sign,
+                $this->operands[1] ?? 'a',
+                $this->condition,
+                $sign,
+                $this->operands[2] ?? 'b'
+            );
+        } else if ($this->cmp_mne instanceof TestMne) {
+            if ($this->flag_condition) {
+                $condition = preg_replace_callback('/@([a-z]+)/', function ($matches)
+                {
+                    return (string) $this->reads[$matches[1]];
+                }, $this->flag_condition);
+            } else {
+                throw new Exception();
+            }
+
+            $logical = sprintf("(%s & %s) == (%s)",
+                $this->operands[1],
+                $this->operands[2],
+                $condition);
+        }
 
         if (['then'] == $this->branch_taken) {
             return sprintf("assert (%s) goto 0x%x",

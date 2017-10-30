@@ -2,6 +2,8 @@
 
 namespace App\Decompiler;
 
+use Exception;
+    
 class ImmOpnd extends BaseOperand
 {
     public $imm;
@@ -13,14 +15,12 @@ class ImmOpnd extends BaseOperand
 
     public function toString($options = [])
     {
-        if ($this->size == 4) {
-            if (in_array('hex', $options)) {
-                return sprintf("0x%x", $this->imm);
-            } else {
-                return sprintf("%d", $this->imm);
-            }
-        }
+        if (isset($this->display_name)) return $this->display_name;
 
-        throw new Exception($this->size);
+        if (in_array('hex', $options)) {
+            return sprintf("0x%x", $this->imm);
+        } else {
+            return sprintf("%d", $this->imm);
+        }
     }
 }

@@ -22,7 +22,8 @@
             "App\\": "app/"
         },
         "files": [
-            "bootstrap/helpers.php"
+            "bootstrap/helpers.php",
+            "bootstrap/ansi-color.php"
         ]
     },
     "autoload-dev": {

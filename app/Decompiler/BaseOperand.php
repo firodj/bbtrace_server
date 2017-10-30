@@ -8,6 +8,7 @@ abstract class BaseOperand
     public $is_write;
     public $size;
     public $rev;
+    public $display_name = null;
 
     abstract function toString($options = []);
 

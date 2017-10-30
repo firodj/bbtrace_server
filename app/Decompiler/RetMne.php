@@ -10,8 +10,10 @@ class RetMne extends BaseMnemonic
     {
         $operands = $this->operands;
 
-        if ($operands[0] instanceof ImmOpnd) {
-            $state->esp += $operands[0]->imm;
+        if (count($operands)) {
+            if ($operands[0] instanceof ImmOpnd) {
+                $state->esp += $operands[0]->imm;
+            }
         }
 
         return $state;
@@ -22,10 +24,12 @@ class RetMne extends BaseMnemonic
         $operands = $this->operands;
 
         $s = "return";
-        if ($operands[0] instanceof ImmOpnd) {
-            $s .= sprintf(" then pop(%s)", $operands[0]);
-        } else {
-            throw new Exception();
+        if (count($operands)) {
+            if ($operands[0] instanceof ImmOpnd) {
+                $s .= sprintf(" then pop(%s)", $operands[0]);
+            } else {
+                throw new Exception();
+            }
         }
 
         return $s;

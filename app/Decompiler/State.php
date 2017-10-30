@@ -12,6 +12,9 @@ class State
 
     public $esp_stack = [];
 
+    const REV_OUTER = 0;
+    const REV_INNER = 1;
+
     public function __construct()
     {
         $this->esp = 0;
@@ -29,7 +32,7 @@ class State
             // create reg for reg_revisions
             if (! array_key_exists($reg,  $analyzer->reg_revisions)) {
                 $analyzer->reg_revisions[$reg] = [
-                    -1 => (object)['read_by' => []]
+                    self::REV_OUTER => (object)['read_by' => []]
                 ];
             }
 
@@ -67,7 +70,7 @@ class State
             if (count($analyzer->reg_revisions[$reg])) {
                 $rev = max(array_keys($analyzer->reg_revisions[$reg])) + 1;
             } else {
-                $rev = 0;
+                $rev = self::REV_INNER;
             }
 
             $analyzer->reg_revisions[$reg][$rev] = (object)['write_by' => null, 'read_by' => []];

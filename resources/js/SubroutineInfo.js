@@ -38,12 +38,10 @@ const BlockContent = ({ block }) => {
 
   if (block.type == 'block') {
 
-    block.insn.forEach((inst, idx) => {
+    block.codes.forEach((code, idx) => {
       const y = (idx + 1) * 10;
-      lines.push( <tspan key={`row-${idx}-a`} x="0" y={y}>{ inst.mnemonic }</tspan> );
-      lines.push( <tspan key={`row-${idx}-b`} x="60" y={y}>{ inst.op_str }</tspan> );
+      lines.push( <tspan key={`row-${idx}-a`} x="0" y={y}>{ code.code }</tspan> );
     });
-    // inst.notes
     return (
       <text fontSize={8} fill="black">
         { lines }

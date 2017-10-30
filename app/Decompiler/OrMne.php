@@ -32,7 +32,7 @@ class OrMne extends BaseMnemonic
         $outputs = $this->outputs;
 
         if ($this->as_mov) {
-            return sprintf("%s = -1", $outputs[$operands[0]->reg], $this->as_mov);
+            return sprintf("%s = -1", $outputs[$operands[0]->reg]);
         }
 
         return sprintf("%s = %s | %s", $outputs[$operands[0]->reg], $operands[0], $operands[1]);
