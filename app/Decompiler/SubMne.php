@@ -6,23 +6,24 @@ use Exception;
 
 class SubMne extends BaseMnemonic
 {
+    public $as_self = null;
+
     public function process($state)
     {
         $operands = $this->operands;
 
-        // printf("zf = %s == %s\n", $operands[0], $operands[1]);
-        // printf("cf = (unsigned)%s < (unsigned)%s\n", $operands[0], $operands[1]);
-        // printf("sf = (signed)((unsigned)%s - (unsigned)%s) < 0\n", $operands[0], $operands[1]);
-        // printf("of = (signed)%s < (signed)%s ? !sf : sf\n", $operands[0], $operands[1]);
-        // printf("pf = even((unsigned)%s - (unsigned)%s)\n", $operands[0], $operands[1]);
-        // printf("//af\n");
+        if ($operands[0] instanceof RegOpnd && $operands[1] instanceof RegOpnd) {
+            if ($operands[0]->reg == $operands[1]->reg) {
+                $this->as_self = $operands[0];
+            }
+        }
 
         if ($operands[0] instanceof RegOpnd && $operands[0]->reg == 'esp')
         {
             if ($operands[1] instanceof ImmOpnd)
             {
                 $k = $operands[0]->reg;
-                if (($state->reg_changes[$k] ?? State::REV_OUTSIDE) == State::REV_OUTSIDE) {
+                if (($state->reg_changes[$k] ?? State::REV_OUTER) == State::REV_OUTER) {
                     $state->esp -= $operands[1]->imm;
 
                     unset($this->reads[$k]);

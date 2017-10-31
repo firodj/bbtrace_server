@@ -6,7 +6,7 @@ use Exception;
 
 class TestMne extends BaseMnemonic
 {
-    var $as_self = null;
+    public $as_self = null;
 
     public function process($state)
     {
@@ -21,7 +21,8 @@ class TestMne extends BaseMnemonic
         return $state;
     }
 
-    public function afterProcess($block, $analyzer) {
+    public function afterProcess($block, $analyzer, $state)
+    {
         $operands = $this->operands;
 
         if ($operands[0] instanceof RegOpnd && $operands[1] instanceof RegOpnd) {
@@ -29,6 +30,8 @@ class TestMne extends BaseMnemonic
                 $operands[1]->rev = $operands[0]->rev;
             }
         }
+
+        return $state;
     }
 
     public function toString($options = [])

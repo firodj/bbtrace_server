@@ -10,16 +10,24 @@ class MemOpnd extends BaseOperand
     public $index;
     public $scale;
     public $disp;
-    public $var;
+    public $var = null;
 
-    public function __construct($base, $index, $scale, $disp, $size, $esp) {
+    public function __construct($base, $index, $scale, $disp, $size, $esp, $ebp) {
         parent::__construct($size);
         $this->base = $base;
         $this->index = $index;
         $this->scale = $scale;
         $this->disp = $disp;
         $this->size = $size;
-        $this->var = $esp + $disp;
+
+        if ($this->base instanceof RegOpnd) {
+            if ($this->base->reg === 'esp') {
+                $this->var = $esp + $disp;
+            }
+            if ($this->base->reg === 'ebp') {
+                $this->var = $ebp + $disp;
+            }
+        }
     }
 
     public function getContent()
@@ -39,14 +47,18 @@ class MemOpnd extends BaseOperand
 
     public function isVar()
     {
-        return $this->isStack() && $this->var < 0;
+        return ($this->isStack() || $this->isFrame()) && $this->var < 0;
     }
 
     public function isArg()
     {
-        return $this->isStack() && $this->var >= 0;
+        return ($this->isStack() || $this->isFrame()) && $this->var >= 0;
     }
 
+    public function isFrame()
+    {
+        return $this->base instanceof RegOpnd && $this->base->reg === 'ebp';
+    }
     public function isStack()
     {
         return $this->base instanceof RegOpnd && $this->base->reg === 'esp';

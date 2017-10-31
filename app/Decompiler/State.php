@@ -5,9 +5,9 @@ namespace App\Decompiler;
 class State
 {
     public $esp;
+    public $ebp;
     public $arg;
     public $block_id;
-
     public $reg_changes = [];
 
     public $esp_stack = [];
@@ -19,6 +19,7 @@ class State
     {
         $this->esp = 0;
         $this->arg = 0;
+        $this->ebp = null;
         $this->block_id = null;
     }
 

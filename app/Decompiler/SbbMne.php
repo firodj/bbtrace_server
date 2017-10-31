@@ -29,7 +29,8 @@ class SbbMne extends BaseMnemonic
         return $state;
     }
 
-    public function afterProcess($block, $analyzer) {
+    public function afterProcess($block, $analyzer, $state)
+    {
         $operands = $this->operands;
 
         if ($operands[0] instanceof RegOpnd && $operands[1] instanceof RegOpnd) {
@@ -37,6 +38,8 @@ class SbbMne extends BaseMnemonic
                 $operands[1]->rev = $operands[0]->rev;
             }
         }
+
+        return $state;
     }
 
     public function toString($options = []) {

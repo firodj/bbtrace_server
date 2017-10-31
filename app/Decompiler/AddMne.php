@@ -13,7 +13,7 @@ class AddMne extends BaseMnemonic
         {
             if ($operands[1] instanceof ImmOpnd) {
                 $k = $operands[0]->reg;
-                if (($state->reg_changes[$k] ?? State::REV_OUTSIDE) == State::REV_OUTSIDE) {
+                if (($state->reg_changes[$k] ?? State::REV_OUTER) == State::REV_OUTER) {
                     $state->esp -= $operands[1]->imm;
 
                     unset($this->reads[$k]);

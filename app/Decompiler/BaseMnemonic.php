@@ -30,7 +30,8 @@ abstract class BaseMnemonic
 
     abstract public function process($state);
 
-    public function afterProcess($block, $analyzer) {
+    public function afterProcess($block, $analyzer, $state) {
+        return $state;
     }
 
     abstract function toString($options = []);
@@ -187,7 +188,8 @@ abstract class BaseMnemonic
                     $opnd->mem->scale,
                     $opnd->mem->disp,
                     $opnd->size,
-                    $state->esp
+                    $state->esp,
+                    $state->ebp
                 );
                 if ($operand->isArg() && ($state->arg < $operand->var)) {
                     $state->arg = $operand->var;
@@ -230,7 +232,7 @@ abstract class BaseMnemonic
 
         $symbol = app(BbAnalyzer::class)->pe_parser->getSymbolByVA($addr);
         if ($symbol) {
-            return sprintf("%s!%s", $sumbol[0], $symbol[1]);
+            return sprintf("%s!%s", $symbol[0], $symbol[1]);
         }
     }
 }

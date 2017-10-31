@@ -75,24 +75,28 @@ class SubroutineAnalyzer
                 $block = Block::find($block_id);
                 if ($block) {
                     if ($block->subroutine_id != $subroutine_id) {
-                        printf(Color::set(
-                            sprintf("Please analyze subs: 0x%x %s\n", $block->subroutine->id, $block->subroutine->name)
-                        ,
-                        'yellow'));
+                        if (is_null($block->subroutine->esp)) {
+                            printf(Color::set(
+                                sprintf("Please analyze subs: 0x%x %s\n", $block->subroutine->id, $block->subroutine->name)
+                            ,
+                            'yellow'));
+                        }
                     }
                 } else {
                     $symbol = Symbol::find($block_id);
-                    throw new Exception(sprintf("Skip symbol: 0x%x %s\n", $symbol->id, $symbol->name));
+                    printf(Color::set(
+                        sprintf("Skip symbol: 0x%x %s\n", $symbol->id, $symbol->getDisplayName())
+                    ,
+                    'yellow'));
 
-                    // FIXME:
-                    if ($symbol) {
-                        $symbol->nextFlows->pluck('id')->each(function ($id) use (&$traces) {
-                            array_push($traces, (object)[
-                                'block_id' => $id,
-                                'state' => clone $state
-                            ]);
-                        });
-                    }
+                    // if ($symbol) {
+                    //     $symbol->nextFlows->pluck('id')->each(function ($id) use (&$traces) {
+                    //         array_push($traces, (object)[
+                    //             'block_id' => $id,
+                    //             'state' => clone $state
+                    //         ]);
+                    //     });
+                    // }
                 }
             }
         }
@@ -222,6 +226,9 @@ class SubroutineAnalyzer
             case 'ret':
                 $mne = new Decompiler\RetMne($block->id, $ins);
                 break;
+            case 'nop':
+                $mne = new Decompiler\NopMne($block->id, $ins);
+                break;
             default:
                 throw new Exception("Invalid ".$ins->mnemonic);
             }
@@ -230,7 +237,7 @@ class SubroutineAnalyzer
             $mne->detectReadsWrites();
             $state = $mne->process($state);
             $state->checkReadsWrites($mne, $this);
-            $mne->afterProcess($block, $this);
+            $state = $mne->afterProcess($block, $this, $state);
 
             if (!isset($this->mnemonics[ $block->id ])) {
                 $this->mnemonics[$block->id] = [];

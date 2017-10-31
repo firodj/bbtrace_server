@@ -40,6 +40,7 @@ class JccMne extends BaseMnemonic
         case 'jle':
             $this->condition = "<=";
             $this->is_signed = true;
+            $this->flag_condition = ' @zf == 1 | @sf <> @of';
             break;
         case 'jg':
             $this->condition = ">";
@@ -53,7 +54,7 @@ class JccMne extends BaseMnemonic
         case 'jbe':
             $this->condition = "<=";
             $this->is_signed = false;
-            $this->flag_condition = '@cf == 1 | @zf == 1';
+            $this->flag_condition = '@zf == 1 | @cf == 1';
             break;
         case 'jb':
             $this->condition = "<";
@@ -67,7 +68,7 @@ class JccMne extends BaseMnemonic
         return $state;
     }
 
-    public function afterProcess($block, $analyzer)
+    public function afterProcess($block, $analyzer, $state)
     {
         if (! $block->jump_dest) return;
         if ($block->jump_addr !== $this->ins->address) return;
@@ -111,6 +112,8 @@ class JccMne extends BaseMnemonic
                 throw new Exception();
             }
         }
+
+        return $state;
     }
 
     public function toString($options = [])
@@ -119,7 +122,6 @@ class JccMne extends BaseMnemonic
 
         $sign = is_null($this->is_signed) ? '' :
             ($this->is_signed === true ? '(signed)' : '(unsigned)');
-
 
         if ($this->cmp_mne instanceof CmpMne) {
             $logical = sprintf("%s%s %s %s%s",
@@ -146,7 +148,7 @@ class JccMne extends BaseMnemonic
         }
 
         if (['then'] == $this->branch_taken) {
-            return sprintf("assert (%s) goto 0x%x",
+            return sprintf("assert (%s) goto %s",
                 $logical,
                 $this->then->toString(['hex'])
             );

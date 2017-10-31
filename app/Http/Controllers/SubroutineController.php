@@ -74,6 +74,18 @@ class SubroutineController extends Controller
                 }
             }
 
+            // If no codes disasm
+            if (! $block->codes ) {
+                $codes = [];
+                $insn = app(BbAnalyzer::class)->disasmBlock($block);
+                foreach($insn as &$ins) {
+                    $codes[] = [
+                        'code' => sprintf("%s %s", $ins->mnemonic, $ins->op_str)
+                    ];
+                }
+                $block->codes = $codes;
+            }
+
             $block->type = 'block';
 
             return $block;
