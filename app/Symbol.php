@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class Symbol extends Model
 {
     public $timestamps = false;
-    public $incrementing = false;
 
     protected $guarded = [];
 
@@ -31,7 +30,7 @@ class Symbol extends Model
         if ($this->module) {
             $name = $this->module->name.'!';
         } else {
-            $name = dechex($this->module_id).'!';
+            $name = dechex($this->module->addr).'!';
         }
         $name .= $this->name;
 

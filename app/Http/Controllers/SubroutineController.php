@@ -29,6 +29,7 @@ class SubroutineController extends Controller
             $symbol = Symbol::with('module')->find($id);
             if ($symbol) {
                 $result = $symbol->toArray();
+                $result['end'] = 0;
                 $result['blocks'] = [];
                 $result['links'] = [];
                 return $result;
@@ -36,6 +37,7 @@ class SubroutineController extends Controller
 
             return [
                 'id' => 0,
+                'end' => 0,
                 'name' => '',
                 'blocks' => [],
                 'links' => [],

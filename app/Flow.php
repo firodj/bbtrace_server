@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class Flow extends Model
 {
     public $timestamps = false;
-    public $incrementing = false;
 
     protected $guarded = [];
 
@@ -23,12 +22,12 @@ class Flow extends Model
 
     public function block()
     {
-        return $this->belongsTo(Block::class, 'id');
+        return $this->belongsTo(Block::class);
     }
 
     public function symbol()
     {
-        return $this->belongsTo(Symbol::class, 'id');
+        return $this->belongsTo(Symbol::class, 'block_id');
     }
 }
 

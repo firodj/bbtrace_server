@@ -25,8 +25,8 @@ class BbAnalyzer
 
     const XREF_TRACE = 0;
     const XREF_EXACT = 1;
-    const XREF_SYMRET = 2;
-    const XREF_FAKERET = 3;
+    const XREF_SPLIT = 2;
+
     const JUMP_MNEMONICS = ['jmp', 'jg', 'jge', 'je', 'jne', 'js', 'jns', 'ja', 'jb', 'jl', 'jle'];
 
     public function __construct($file_name)
@@ -98,47 +98,62 @@ class BbAnalyzer
         }
 
         if (isset($o['module_start'])) {
-            Module::firstOrCreate([
-                'id' => $o['module_start'],
-            ], [
-                'entry' => $o['module_entry'],
-                'end' => $o['module_end'],
-                'name' => $o['module_name'],
-                'path' => $o['module_path'],
-            ]);
+            $module = Module::where('addr', $o['module_start'])->first();
+            if (! $module) {
+                $module = new Module;
+                $module->fill([
+                    'addr' => $o['module_start'],
+                    'entry' => $o['module_entry'],
+                    'end' => $o['module_end'],
+                    'name' => $o['module_name'],
+                    'path' => $o['module_path'],
+                ]);
+                $module->save();
+            }
         } elseif (isset($o['block_entry'])) {
-            Block::firstOrCreate([
-                'id' => $o['block_entry'],
-            ], [
-                'end' => $o['block_end'],
-                'module_id' => $o['module_start_ref'],
-            ]);
+            $block = Block::where('addr', $o['block_entry'])->first();
+            if (! $block) {
+                $module = Module::where('addr', $o['module_start_ref'])->firstOrFail();
+                $block = new Block;
+                $block->fill([
+                    'addr' => $o['block_entry'],
+                    'end' => $o['block_end'],
+                    'module_id' => $module->id,
+                ]);
+                $block->save();
+            }
         }
         elseif (isset($o['symbol_entry'])) {
-            Symbol::firstOrCreate([
-                'id' => $o['symbol_entry'],
-            ], [
-                'name' => $o['symbol_name'],
-                'ordinal' => $o['symbol_ordinal'],
-                'module_id' => $o['module_start_ref'],
-            ]);
+            $symbol = Symbol::where('addr', $o['symbol_entry'])->first();
+            if (! $symbol) {
+                $module = Module::where('addr', $o['module_start_ref'])->firstOrFail();
+                $symbol = new Symbol;
+                $symbol->fill([
+                    'addr' => $o['symbol_entry'],
+                    'name' => $o['symbol_name'],
+                    'ordinal' => $o['symbol_ordinal'],
+                    'module_id' => $module->id,
+                ]);
+                $symbol->save();
+            }
         }
         elseif (isset($o['function_entry'])) {
-            $subroutine = Subroutine::find($o['function_entry']);
+            $subroutine = Subroutine::where('addr', $o['function_entry'])->first();
             if ($subroutine) {
                 $subroutine->name = $o['function_name'];
             } else {
+                $module = Module::where('addr', '<=', $o['module_start_ref'])
+                                ->where('end', '>', $o['module_start_ref'])
+                                ->firstOrFail();
                 $subroutine = new Subroutine;
                 $subroutine->fill([
-                    'id' => $o['function_entry'],
+                    'addr' => $o['function_entry'],
                     'name' => $o['function_name'],
                     'end' => $o['function_end'],
-                    'module_id' => $o['module_start_ref'],
+                    'module_id' => $module->id,
                 ]);
             }
-            if (!$subroutine->save()) {
-                ;
-            }
+            $subroutine->save();
         }
         elseif (isset($o['exception_code'])) {
             $this->exceptions[ $o['exception_address'] ] = $o;
@@ -154,7 +169,7 @@ class BbAnalyzer
     public function disasmBlock(Block $block)
     {
         $data = $this->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
-        $insn = cs_disasm($this->capstone, $data, $block->id);
+        $insn = cs_disasm($this->capstone, $data, $block->addr);
         return $insn;
     }
 
@@ -165,7 +180,7 @@ class BbAnalyzer
     {
         $base = $this->pe_parser->getHeaderValue('opt.ImageBase');
         $ep = $this->pe_parser->getHeaderValue('opt.AddressOfEntryPoint');
-        return Block::find($base + $ep);
+        return Block::where('addr', $base + $ep)->first();
     }
 
     public function analyzeBlock(Block $block)
@@ -189,18 +204,18 @@ class BbAnalyzer
                 }
                 if ($addr) {
                     $rva = $this->pe_parser->va2rva($addr);
-                    $ref = Reference::where(['ref_addr' => $ins->address, 'id' => $addr])->first();
+                    $ref = Reference::where(['ref_addr' => $ins->address, 'addr' => $addr])->first();
                     if ($ref) continue;
 
                     $s = $this->pe_parser->findSection($rva);
 
                     if (isset($s)) {
                         $section = $this->pe_parser->getSection($s->n);
-                        $dest = Block::find($addr);
+                        $dest = Block::where('addr', $addr)->first();
 
                         $ref = new Reference;
                         $ref->ref_addr = $ins->address;
-                        $ref->id = $addr;
+                        $ref->addr = $addr;
 
                         if (in_array('CODE', $section->flags)) {
                             $ref->kind = isset($dest) ? 'C' : 'X';
@@ -237,7 +252,10 @@ class BbAnalyzer
         $base = $this->pe_parser->getHeaderValue('opt.ImageBase');
 
         foreach(Block::get() as $block) {
-            if ($block->module_id != $base) continue;
+            if ($block->module->addr != $base) {
+                printf("Block 0x%x different module 0x%x!\n", $block->addr, $base);
+                continue;
+            }
 
             $this->analyzeBlock($block);
         }
@@ -247,18 +265,18 @@ class BbAnalyzer
     {
         $this->blocks = [];
         Block::get()->each(function ($block) {
-            $this->blocks[$block->id] = (object) $block->toArray();
+            $this->blocks[$block->addr] = (object) $block->toArray();
         });
 
         $this->symbols = [];
         Symbol::get()->each(function ($symbol) {
-            $this->symbols[$symbol->id] = (object) $symbol->toArray();
+            $this->symbols[$symbol->addr] = (object) $symbol->toArray();
         });
 
         $this->ingress = [];
         Flow::get()->each(function ($flow) {
-            $this->ingress += [$flow->id => []];
-            $this->ingress[$flow->id][$flow->last_block_id] = $flow->xref;
+            $this->ingress += [$flow->block->addr => []];
+            $this->ingress[$flow->block->addr][$flow->lastBlock->addr] = $flow->xref;
         });
     }
 
@@ -268,33 +286,41 @@ class BbAnalyzer
         $fp = fopen($fname, 'r');
 
         while (($data = fgetcsv($fp, 100, ",")) !== FALSE) {
-            $block_id = hexdec($data[0]);
-            $last_block_id = hexdec($data[1]);
+            $block_addr = hexdec($data[0]);
+            $last_block_addr = hexdec($data[1]);
 
-            $last_block = $this->blocks[$last_block_id] ?? null;
+            $last_block = Block::where('addr', $last_block_addr)->first();
             $xref = self::XREF_TRACE;
 
             if ($last_block) {
-                if ($last_block->jump_dest == $block_id) { // Jxx taken or call
+                if ($last_block->jump_dest == $block_addr) { // Jxx taken or call
                     $xref = self::XREF_EXACT;
-                } else if ($last_block->end == $block_id) { // Jcc not taken
+                } else if ($last_block->end == $block_addr) { // Jcc not taken
                     $xref = self::XREF_EXACT;
                 }
             }
 
-            if (!array_key_exists($block_id, $this->ingress)) {
-                $this->ingress[$block_id] = [];
+            $block = Block::where('addr', $block_addr)->first();
+            if (! $block) {
+                $block = Symbol::where('addr', $block_addr)->first();
             }
-            if (!array_key_exists($last_block_id, $this->ingress[$block_id])) {
-                $this->ingress[$block_id][$last_block_id] = $xref;
-                Flow::firstOrCreate([
-                        'id' => $block_id,
-                        'last_block_id' => $last_block_id
-                    ],
-                    [
-                        'xref' => $xref
-                    ]
-                );
+
+            if (! $last_block) {
+                $last_block = Symbol::where('addr', $last_block_addr)->first();
+            }
+
+            $flow = Flow::where('block_id', $block->id)
+                        ->where('last_block_id', $last_block->id)
+                        ->first();
+
+            if (! $flow) {
+                $flow = new Flow;
+                $flow->fill([
+                    'block_id' => $block->id,
+                    'last_block_id' => $last_block->id,
+                    'xref' => $xref
+                ]);
+                $flow->save();
             }
         }
 
@@ -303,15 +329,19 @@ class BbAnalyzer
 
     protected function createSubroutineByBlock($block, $prefix)
     {
-        $subroutine = Subroutine::firstOrCreate([
-            'id' => $block->id,
-        ], [
-            'end' => $block->end,
-            'module_id' => $block->module_id,
-            'name' => $prefix . '_' . dechex($block->id),
-        ]);
+        $subroutine = Subroutine::where('addr', $block->addr)->first();
+        if (! $subroutine) {
+            $subroutine = new Subroutine;
+            $subroutine->fill([
+                'addr' => $block->addr,
+                'end' => $block->end,
+                'module_id' => $block->module_id,
+                'name' => $prefix . '_' . dechex($block->addr),
+            ]);
+            $subroutine->save();
+        }
 
-        fprintf(STDERR, "New Function %X: %s\n", $subroutine->id, $subroutine->name);
+        fprintf(STDERR, "New Function %X: %s\n", $subroutine->addr, $subroutine->name);
 
         return $subroutine;
     }
@@ -322,24 +352,20 @@ class BbAnalyzer
         $subroutine_id = $block->subroutine_id;
 
         while ($block = array_shift($pending_blocks)) {
-            if ($block->jump_mnemonic[0] == 'j') { // jxx
-                $block->nextFlows->each(function($next_flow) use (&$pending_blocks, $subroutine_id) {
-                    if ($next_flow->block) {
-                        if ($next_flow->block->subroutine_id) {
-                            fprintf(STDERR, "Block %X Jump to known %X (%X)\n", $next_flow->last_block_id, $next_flow->block->id, $next_flow->block->subroutine_id);
-                        } else {
-                            $pending_blocks[] = $next_flow->block;
+            foreach($block->nextFlows as $next_flow) {
+                if ($block->jump_mnemonic[0] != 'j' && ($next_flow->xref != self::XREF_SPLIT)) continue;
+                if (! $next_flow->block) continue;
 
-                            $next_flow->block->subroutine_id = $subroutine_id;
-                            $next_flow->block->save();
+                if ($next_flow->block->subroutine_id) {
+                    fprintf(STDERR, "Block %X Jump to known %X (%X)\n", $next_flow->last_block_id, $next_flow->block->id, $next_flow->block->subroutine_id);
+                } else {
+                    $pending_blocks[] = $next_flow->block;
 
-                            // Update cache.
-                            $this->blocks[$next_flow->block->id] = (object) $next_flow->block->toArray();
+                    $next_flow->block->subroutine_id = $subroutine_id;
+                    $next_flow->block->save();
 
-                            fprintf(STDERR, "Assign by jump: %X (%X)\n", $next_flow->block->id, $subroutine_id);
-                        }
-                    }
-                });
+                    fprintf(STDERR, "Assign by jump: %X (%X)\n", $next_flow->block->id, $subroutine_id);
+                }
             }
         }
     }
@@ -347,21 +373,21 @@ class BbAnalyzer
     public function assignSubroutines()
     {
         // Filter by Subroutine Ranges
-        Subroutine::get()->each(function($subroutine) {
-            Block::whereBetween('id', [$subroutine->id, $subroutine->end-1])->update(['subroutine_id' => $subroutine->id]);
+        Subroutine::orderBy('addr')->get()->each(function($subroutine) {
+            Block::whereBetween('addr', [$subroutine->addr, $subroutine->end - 1])
+                 ->update(['subroutine_id' => $subroutine->id]);
         });
 
+        // Filter whose block not within range
         // Call
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
                 if ($flow->lastBlock && $flow->lastBlock->subroutine_id &&
                     $flow->lastBlock->jump_mnemonic == 'call') {
+
                     $subroutine = $this->createSubroutineByBlock($block, 'proc');
                     $block->subroutine_id = $subroutine->id;
                     $block->save();
-
-                    // Update cache.
-                    $this->blocks[$block->id] = (object)$block->toArray();
 
                     $this->assignSubroutineByFlow($block);
                 }
@@ -372,27 +398,22 @@ class BbAnalyzer
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
                 if ($flow->lastBlock && $flow->lastBlock->jump_mnemonic == 'ret') {
-                    $before_block = Block::where('end', $block->id)->first();
+                    $before_block = Block::where('end', $block->addr)->first();
+
                     if ($before_block && $before_block->subroutine_id) {
                         $block->subroutine_id = $before_block->subroutine_id;
                         $block->save();
 
                         fprintf(STDERR, "Assign by return %X (%X)\n", $block->id, $block->subroutine_id);
 
-                        // Update cache.
-                        $this->blocks[$block->id] = (object)$block->toArray();
-
                         $this->assignSubroutineByFlow($block);
-                    } else if (($block->id & 0xf) == 0) { // align 10h
+                    } else if (($block->addr & 0xf) == 0) { // align 10h
                         // GUEST!
                         $subroutine = $this->createSubroutineByBlock($block, 'callback');
                         $block->subroutine_id = $subroutine->id;
                         $block->save();
 
                         fprintf(STDERR, "Assign by callback %X (%X)\n", $block->id, $block->subroutine_id);
-
-                        // Update cache.
-                        $this->blocks[$block->id] = (object)$block->toArray();
 
                         $this->assignSubroutineByFlow($block);
                     }
@@ -403,18 +424,16 @@ class BbAnalyzer
         // Jxx
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
-                if ($flow->lastBlock && $flow->lastBlock->subroutine_id &&
-                    $flow->lastBlock->jump_mnemonic[0] == 'j') {
+                if ($flow->lastBlock && $flow->lastBlock->subroutine_id) {
+                    if ($flow->lastBlock->jump_mnemonic[0] == 'j' || ($flow->xref == self::XREF_SPLIT)) {
                         $block->subroutine_id = $flow->lastBlock->subroutine_id;
                         $block->save();
 
                         fprintf(STDERR, "Assign by jump %X (%X)\n", $block->id, $block->subroutine_id);
 
-                        // Update cache.
-                        $this->blocks[$block->id] = (object)$block->toArray();
-
                         $this->assignSubroutineByFlow($block);
                     }
+                }
             });
         });
 
@@ -429,9 +448,6 @@ class BbAnalyzer
                             $block->save();
 
                             fprintf(STDERR, "Assign by last symbol (return) %X (%X)\n", $block->id, $block->subroutine_id);
-
-                            // Update cache.
-                            $this->blocks[$block->id] = (object)$block->toArray();
 
                             $this->assignSubroutineByFlow($block);
                         }
@@ -496,16 +512,67 @@ class BbAnalyzer
         //fprintf(STDERR, "callback: %d\n", $this->data->callbacks[$block_id] ?? null);
     }
 
-    public function buildExgress()
+    public function fixOverlappedBlocks()
     {
-        foreach($this->ingress as $block_id => $befores) {
-            foreach($befores as $last_block_id => $xref_value) {
-                if (!array_key_exists($last_block_id, $this->data->exgress)) {
-                    $this->data->exgress[ $last_block_id ] = [];
+        $ends = Block::select('end', app('db')->raw('count(id) as n'))
+                     ->groupBy('end')
+                     ->havingRaw('count(id) > 1')
+                     ->orderBy('n', 'asc')
+                     ->get();
+
+        foreach($ends as $end) {
+            $blocks = Block::where('end', $end->end)->orderBy('addr', 'asc')->get();
+
+            printf("end: 0x%x, ids: %s\n", $end->end,
+                implode(', ', $blocks->pluck('id')->toArray())
+            );
+            printf("origin: 0x%x - 0x%x\n", $blocks[0]->addr, $blocks[0]->end);
+            // Check if has been applied
+            foreach($blocks as $block) {
+                if ($block->nextFlows()->count() == 0) {
+                    throw new Exception(sprintf("Block %d with end 0x%x doesnt have nextFlows", $block->id, $block->end));
                 }
-                $this->data->exgress[$last_block_id][$block_id] = $xref_value;
             }
+
+            // Merge all exit flags to last block
+            for ($i = 0; $i < $blocks->count()-1; ++$i) {
+                $flows = $blocks[$i]->nextFlows;
+                foreach($flows as $flow) {
+                    $end_block_id = $blocks->last()->id;
+                    $new_flow = Flow::where('last_block_id', $end_block_id)
+                                    ->where('block_id', $flow->block_id)
+                                    ->first();
+                    if (! $new_flow) {
+                        $flow->last_block_id = $end_block_id;
+                        $flow->save();
+                        printf("Flow %d updated!\n", $flow->id);
+                    } else {
+                        $flow->delete();
+                        printf("Flow %d deleted!\n", $flow->id);
+                    }
+                }
+            }
+
+            // Shrink each blocks;
+            for($i = 0; $i < $blocks->count() - 1; ++$i) {
+                $blocks[$i]->end = $blocks[$i + 1]->addr;
+                if ($blocks[$i]->jump_addr >= $blocks[$i]->end) {
+                    $blocks[$i]->jump_mnemonic = null;
+                    $blocks[$i]->jump_dest = null;
+                    $blocks[$i]->jump_addr = null;
+                }
+                $blocks[$i]->save();
+                printf("Block %d updated!\n", $blocks[$i]->id);
+
+                $flow = new Flow;
+                $flow->last_block_id = $blocks[$i]->id;
+                $flow->block_id = $blocks[$i + 1]->id;
+                $flow->xref = self::XREF_SPLIT;
+                $flow->save();
+
+                printf("Flow %d created!\n", $flow->id);
+            }
+            printf("Block %d untouched!\n", $blocks[$i]->id);
         }
     }
-
 }

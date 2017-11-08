@@ -255,4 +255,23 @@ class SubroutineAnalyzer
 
         return $state;
     }
+
+    public function binary(int $subroutine_id)
+    {
+        $subroutine = Subroutine::findOrFail($subroutine_id);
+
+        printf("Binary subs: 0x%x %s\n", $subroutine->id, $subroutine->name);
+
+        $prev = null;
+        $subroutine->blocks->each(function ($block) use(&$prev) {
+            $data = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
+            if (!is_null($prev)) {
+                if ($prev->end != $block->id) {
+                    printf("Missing: 0x%x - 0x%x\n", $prev->end, $block->id);
+                }
+            }
+            printf("Block: 0x%x - 0x%x\n", $block->id, $block->end);
+            $prev = $block;
+        });
+    }
 }

@@ -12,7 +12,6 @@ class Reference extends Model
      * @var bool
      */
     public $timestamps = false;
-    public $incrementing = false;
 
     protected $guarded = [];
 

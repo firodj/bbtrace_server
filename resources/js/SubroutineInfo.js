@@ -20,7 +20,9 @@ type Props = {
 type State = {
   info: {
     blocks: Array<any>,
+    links: Array<any>,
     id: number,
+    end: number,
     name: string,
   }
 }
@@ -29,6 +31,7 @@ const emptyInfo = {
   blocks: [],
   links: [],
   id: 0,
+  end: 0,
   name: '',
 }
 
@@ -101,6 +104,10 @@ class SubroutineInfo extends Component<Props, State> {
         <div>
           <span style={styles.smallCell}>address</span>
           <span style={styles.cell}>{ sprintf("0x%x", this.state.info.id) }</span>
+        </div>
+        <div>
+          <span style={styles.smallCell}>end</span>
+          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.end) }</span>
         </div>
         <div>
           <span style={styles.smallCell}>name</span>

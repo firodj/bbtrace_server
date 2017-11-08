@@ -5,7 +5,7 @@ class ModuleTest extends TestCase
     public function testCreate()
     {
         $m = new App\Module;
-        $m->id = 0x400000;
+        $m->addr = 0x400000;
         $m->entry = 0x0041e4cf;
         $m->end = 0x00729000;
         $m->name = "psxfin.exe";

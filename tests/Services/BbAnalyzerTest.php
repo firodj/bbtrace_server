@@ -31,7 +31,6 @@ class BbAnalyzerTest extends TestCase
         $block = $this->anal->getStartBlock();
 
         $inst = $this->anal->disasmBlock($block);
-
         $this->assertEquals(1, count($inst));
     }
 
@@ -40,14 +39,18 @@ class BbAnalyzerTest extends TestCase
         $this->anal->analyzeAllBlocks();
     }
 
+    public function testParseFlowLog()
+    {
+        $this->anal->parseFlowLog();
+    }
+
+    public function testFixOverlappedBlocks()
+    {
+        $this->anal->fixOverlappedBlocks();
+    }
+
     public function testAssignSubroutines()
     {
         $this->anal->assignSubroutines();
-    }
-
-    public function testParseFlowLog()
-    {
-        $this->anal->loadAll();
-        $this->anal->parseFlowLog();
     }
 }

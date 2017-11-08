@@ -16,7 +16,7 @@ class CreateTableGraphNodesAndGraphLinks extends Migration
         Schema::create('graph_nodes', function(Blueprint $table)
         {
             $table->increments('id');
-            $table->integer('subroutine_id');
+            $table->integer('subroutine_id')->index();
             $table->string('label', 512);
             $table->boolean('is_symbol');
             $table->boolean('is_copy');
@@ -24,8 +24,8 @@ class CreateTableGraphNodesAndGraphLinks extends Migration
         Schema::create('graph_links', function(Blueprint $table)
         {
             $table->increments('id');
-            $table->integer('source_id');
-            $table->integer('target_id');
+            $table->integer('source_id')->index();
+            $table->integer('target_id')->index();
             $table->integer('xref');
         });
     }

@@ -15,18 +15,20 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
     {
         Schema::create('blocks', function(Blueprint $table)
         {
-            $table->integer('id')->primary();
+            $table->increments('id');
+            $table->integer('addr')->index();
             $table->integer('end')->index();
             $table->integer('module_id')->index();
             $table->integer('subroutine_id')->nullable()->index();
-            $table->integer('jump_addr');
-            $table->string('jump_mnemonic');
+            $table->integer('jump_addr')->nullable();
+            $table->string('jump_mnemonic')->nullable();
             $table->integer('jump_dest')->nullable();
         });
 
         Schema::create('modules', function(Blueprint $table)
         {
-            $table->integer('id')->primary();
+            $table->increments('id');
+            $table->integer('addr')->index();
             $table->integer('entry');
             $table->integer('end');
             $table->string('name');
@@ -35,7 +37,8 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
 
         Schema::create('symbols', function(Blueprint $table)
         {
-            $table->integer('id')->primary();
+            $table->increments('id');
+            $table->integer('addr')->index();
             $table->integer('module_id')->index();
             $table->string('name');
             $table->integer('ordinal');
@@ -43,20 +46,29 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
 
         Schema::create('subroutines', function(Blueprint $table)
         {
-            $table->integer('id')->primary();
+            $table->increments('id');
+            $table->integer('addr')->index();
             $table->integer('end');
             $table->integer('module_id')->index();
             $table->string('name');
+            $table->integer('arg')->nullable();
+            $table->integer('esp')->nullable();
         });
 
         Schema::create('references', function(Blueprint $table)
         {
-            $table->integer('id');
+            $table->increments('id');
+            $table->integer('addr')->index();
             $table->integer('ref_addr');
-            $table->primary(['id', 'ref_addr']);
             $table->string('kind', 1);
         });
 
+        Schema::create('flows', function(Blueprint $table) {
+            $table->increments('id');
+            $table->integer('block_id')->index();
+            $table->integer('last_block_id')->index();
+            $table->tinyInteger('xref');
+        });
     }
 
     /**
@@ -71,5 +83,6 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
         Schema::dropIfExists('symbols');
         Schema::dropIfExists('subroutines');
         Schema::dropIfExists('references');
+        Schema::dropIfExists('flows');
     }
 }

@@ -12,7 +12,6 @@ class Block extends Model
      * @var bool
      */
     public $timestamps = false;
-    public $incrementing = false;
 
     protected $guarded = [];
 
@@ -37,7 +36,7 @@ class Block extends Model
 
     public function flows()
     {
-        return $this->hasMany(Flow::class, 'id');
+        return $this->hasMany(Flow::class);
     }
 
     public function nextFlows()
@@ -47,25 +46,25 @@ class Block extends Model
 
     public function getSize()
     {
-        return $this->end - $this->id;
+        return $this->end - $this->addr;
     }
 
     public function getRva()
     {
-        return $this->id - $this->module_id;
+        return $this->addr - $this->module->addr;
     }
 
     public function getDisplayName()
     {
         if ($this->subroutine) {
             $name = $this->subroutine->name;
-            if ($this->id != $this->subroutine_id) {
-                $ofs = dechex(abs($this->id - $this->subroutine_id));
-                $name .= ($this->id < $this->subroutine_id ? '-' : '+' ) . $ofs;
+            if ($this->addr != $this->subroutine->addr) {
+                $ofs = dechex(abs($this->addr - $this->subroutine->addr));
+                $name .= ($this->addr < $this->subroutine->addr ? '-' : '+' ) . $ofs;
             }
             return $name;
         }
-        return dechex($id);
+        return 'block_'.dechex($this->addr);
     }
 }
 

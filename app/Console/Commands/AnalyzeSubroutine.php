@@ -8,7 +8,8 @@ use App\Services\SubroutineAnalyzer;
 class AnalyzeSubroutine extends Command
 {
     protected $signature = 'analyze:subroutine
-                            {id : Subroutine Id}';
+                            {id : Subroutine Id}
+                            {--binary=BINARY : output binary}';
 
     protected $description = 'Analyze Subroutine';
 
@@ -23,9 +24,11 @@ class AnalyzeSubroutine extends Command
 
         $this->anal = new SubroutineAnalyzer();
 
-        $this->anal->analyze($id);
+        if ($binaryFile = $this->option('binary')) {
+            $this->anal->binary($id);
+            return;
+        }
 
+        $this->anal->analyze($id);
     }
 }
-
-

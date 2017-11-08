@@ -19,8 +19,6 @@ class AddColumnCodesOnTableBlocks extends Migration
         });
         Schema::table('subroutines', function(Blueprint $table)
         {
-            $table->integer('arg')->nullable();
-            $table->integer('esp')->nullable();
             $table->json('returns')->nullable();
         });
     }
@@ -38,8 +36,6 @@ class AddColumnCodesOnTableBlocks extends Migration
         });
         Schema::table('subroutines', function(Blueprint $table)
         {
-            $table->dropColumn('arg');
-            $table->dropColumn('esp');
             $table->dropColumn('returns');
         });
     }
