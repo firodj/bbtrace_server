@@ -10,24 +10,14 @@ class Flow extends Model
 
     protected $guarded = [];
 
-    public function lastBlock()
-    {
-        return $this->belongsTo(Block::class);
-    }
-
-    public function lastSymbol()
-    {
-        return $this->belongsTo(Symbol::class, 'last_block_id');
-    }
-
     public function block()
     {
-        return $this->belongsTo(Block::class);
+        return $this->morphTo();
     }
 
-    public function symbol()
+    public function lastBlock()
     {
-        return $this->belongsTo(Symbol::class, 'block_id');
+        return $this->morphTo();
     }
 }
 

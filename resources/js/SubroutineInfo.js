@@ -21,7 +21,7 @@ type State = {
   info: {
     blocks: Array<any>,
     links: Array<any>,
-    id: number,
+    addr: number,
     end: number,
     name: string,
   }
@@ -30,14 +30,14 @@ type State = {
 const emptyInfo = {
   blocks: [],
   links: [],
-  id: 0,
+  addr: 0,
   end: 0,
   name: '',
 }
 
 const BlockContent = ({ block }) => {
   const lines = [];
-  lines.push( <tspan key="label" x="0" y="0">{ sprintf("0x%x:", block.id) }</tspan> );
+  lines.push( <tspan key="label" x="0" y="0">{ sprintf("0x%x:", block.addr) }</tspan> );
 
   if (block.type == 'block') {
 
@@ -103,7 +103,7 @@ class SubroutineInfo extends Component<Props, State> {
       <div style={styles.simpleBlock}>
         <div>
           <span style={styles.smallCell}>address</span>
-          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.id) }</span>
+          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.addr) }</span>
         </div>
         <div>
           <span style={styles.smallCell}>end</span>

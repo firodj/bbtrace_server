@@ -78,14 +78,35 @@ class BbAnalyzer
 
     public function parseFunc()
     {
+        $subroutines = [];
+
         $fpath = bbtrace_name($this->file_name, 'log.func');
-        return (new JsonParser($fpath))->parse(function($o)
+
+        (new JsonParser($fpath))->parse(function($o) use (&$subroutines)
         {
-            $this->saveInfo($o);
+            $o = $this->convertAddressField($o);
+
+            if (isset($o['function_entry'])) {
+                $subroutines[$o['function_entry']] = $o;
+            }
+        });
+
+        // $addresses = array_keys($subroutines);
+        // sort($addresses);
+
+        Block::orderBy('id')->get()->each(function ($block) use (&$subroutines) {
+            if (array_key_exists($block->addr, $subroutines)) {
+                $o = $subroutines[$block->addr];
+                $subroutine = $this->saveInfo($o);
+                if ($subroutine instanceof Subroutine) {
+                    $block->subroutine_id = $subroutine->id;
+                    $block->save();
+                }
+            }
         });
     }
 
-    protected function saveInfo($o)
+    protected function convertAddressField($o)
     {
         foreach(['block_entry', 'block_end', 'symbol_entry',
             'module_start_ref', 'module_start', 'module_end', 'module_entry',
@@ -96,6 +117,13 @@ class BbAnalyzer
                 $o[$k] = hexdec($o[$k]);
             }
         }
+
+        return $o;
+    }
+
+    protected function saveInfo($o)
+    {
+        $o = $this->convertAddressField($o);
 
         if (isset($o['module_start'])) {
             $module = Module::where('addr', $o['module_start'])->first();
@@ -110,6 +138,7 @@ class BbAnalyzer
                 ]);
                 $module->save();
             }
+            return $module;
         } elseif (isset($o['block_entry'])) {
             $block = Block::where('addr', $o['block_entry'])->first();
             if (! $block) {
@@ -122,6 +151,7 @@ class BbAnalyzer
                 ]);
                 $block->save();
             }
+            return $block;
         }
         elseif (isset($o['symbol_entry'])) {
             $symbol = Symbol::where('addr', $o['symbol_entry'])->first();
@@ -136,6 +166,7 @@ class BbAnalyzer
                 ]);
                 $symbol->save();
             }
+            return $symbol;
         }
         elseif (isset($o['function_entry'])) {
             $subroutine = Subroutine::where('addr', $o['function_entry'])->first();
@@ -154,6 +185,8 @@ class BbAnalyzer
                 ]);
             }
             $subroutine->save();
+
+            return $subroutine;
         }
         elseif (isset($o['exception_code'])) {
             $this->exceptions[ $o['exception_address'] ] = $o;
@@ -309,15 +342,17 @@ class BbAnalyzer
                 $last_block = Symbol::where('addr', $last_block_addr)->first();
             }
 
-            $flow = Flow::where('block_id', $block->id)
-                        ->where('last_block_id', $last_block->id)
+            $flow = Flow::where('block_id', $block->id)->where('block_type', $block->getTable())
+                        ->where('last_block_id', $last_block->id)->where('last_block_type', $last_block->getTable())
                         ->first();
 
             if (! $flow) {
                 $flow = new Flow;
                 $flow->fill([
                     'block_id' => $block->id,
+                    'block_type' => $block->getTable(),
                     'last_block_id' => $last_block->id,
+                    'last_block_type' => $last_block->getTable(),
                     'xref' => $xref
                 ]);
                 $flow->save();
@@ -355,6 +390,7 @@ class BbAnalyzer
             foreach($block->nextFlows as $next_flow) {
                 if ($block->jump_mnemonic[0] != 'j' && ($next_flow->xref != self::XREF_SPLIT)) continue;
                 if (! $next_flow->block) continue;
+                if (!($next_flow->block instanceof Block)) continue;
 
                 if ($next_flow->block->subroutine_id) {
                     fprintf(STDERR, "Block %X Jump to known %X (%X)\n", $next_flow->last_block_id, $next_flow->block->id, $next_flow->block->subroutine_id);
@@ -382,7 +418,9 @@ class BbAnalyzer
         // Call
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
-                if ($flow->lastBlock && $flow->lastBlock->subroutine_id &&
+                if ($flow->lastBlock && 
+                    $flow->lastBlock instanceof Block &&
+                    $flow->lastBlock->subroutine_id &&
                     $flow->lastBlock->jump_mnemonic == 'call') {
 
                     $subroutine = $this->createSubroutineByBlock($block, 'proc');
@@ -397,7 +435,9 @@ class BbAnalyzer
         // Ret
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
-                if ($flow->lastBlock && $flow->lastBlock->jump_mnemonic == 'ret') {
+                if ($flow->lastBlock &&
+                    $flow->lastBlock instanceof Block &&
+                    $flow->lastBlock->jump_mnemonic == 'ret') {
                     $before_block = Block::where('end', $block->addr)->first();
 
                     if ($before_block && $before_block->subroutine_id) {
@@ -424,7 +464,9 @@ class BbAnalyzer
         // Jxx
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
-                if ($flow->lastBlock && $flow->lastBlock->subroutine_id) {
+                if ($flow->lastBlock && 
+                    $flow->lastBlock instanceof Block &&
+                    $flow->lastBlock->subroutine_id) {
                     if ($flow->lastBlock->jump_mnemonic[0] == 'j' || ($flow->xref == self::XREF_SPLIT)) {
                         $block->subroutine_id = $flow->lastBlock->subroutine_id;
                         $block->save();
@@ -440,17 +482,15 @@ class BbAnalyzer
         // Symbol
         Block::whereNull('subroutine_id')->get()->each(function($block) {
             $block->flows->each(function($flow) use(&$block) {
-                if ($flow->lastSymbol) {
-                    $before_block = Block::where('end', $block->id)->first();
-                    if ($before_block) {
-                        if ($before_block->subroutine_id) {
-                            $block->subroutine_id = $before_block->subroutine_id;
-                            $block->save();
+                if ($flow->lastBlock && $flow->lastBlock instanceof Symbol) {
+                    $before_block = Block::where('end', $block->addr)->first();
+                    if ($before_block && $before_block->subroutine_id) {
+                        $block->subroutine_id = $before_block->subroutine_id;
+                        $block->save();
 
-                            fprintf(STDERR, "Assign by last symbol (return) %X (%X)\n", $block->id, $block->subroutine_id);
+                        fprintf(STDERR, "Assign by last symbol (return) %X (%X)\n", $block->id, $block->subroutine_id);
 
-                            $this->assignSubroutineByFlow($block);
-                        }
+                        $this->assignSubroutineByFlow($block);
                     }
                 }
             });
@@ -538,12 +578,15 @@ class BbAnalyzer
             for ($i = 0; $i < $blocks->count()-1; ++$i) {
                 $flows = $blocks[$i]->nextFlows;
                 foreach($flows as $flow) {
-                    $end_block_id = $blocks->last()->id;
-                    $new_flow = Flow::where('last_block_id', $end_block_id)
+                    $end_block = $blocks->last();
+                    $new_flow = Flow::where('last_block_id', $end_block->id)
+                                    ->where('last_block_type', $end_block->getTable())
                                     ->where('block_id', $flow->block_id)
+                                    ->where('block_type', $flow->block_type)
                                     ->first();
                     if (! $new_flow) {
-                        $flow->last_block_id = $end_block_id;
+                        $flow->last_block_id = $end_block->id;
+                        $flow->last_block_type = $end_block->getTable();
                         $flow->save();
                         printf("Flow %d updated!\n", $flow->id);
                     } else {
@@ -566,7 +609,9 @@ class BbAnalyzer
 
                 $flow = new Flow;
                 $flow->last_block_id = $blocks[$i]->id;
+                $flow->last_block_type = $blocks[$i]->getTable();
                 $flow->block_id = $blocks[$i + 1]->id;
+                $flow->block_type = $blocks[$i + 1]->getTable();
                 $flow->xref = self::XREF_SPLIT;
                 $flow->save();
 

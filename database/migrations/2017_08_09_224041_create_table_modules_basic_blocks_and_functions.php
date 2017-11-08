@@ -66,7 +66,9 @@ class CreateTableModulesBasicBlocksAndFunctions extends Migration
         Schema::create('flows', function(Blueprint $table) {
             $table->increments('id');
             $table->integer('block_id')->index();
+            $table->string('block_type')->index();
             $table->integer('last_block_id')->index();
+            $table->string('last_block_type')->index();
             $table->tinyInteger('xref');
         });
     }

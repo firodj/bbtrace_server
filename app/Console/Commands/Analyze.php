@@ -8,8 +8,10 @@ use App\Services\BbAnalyzer;
 class Analyze extends Command
 {
     protected $signature = 'analyze
+                            {--all}
                             {--basic}
                             {--flow}
+                            {--over}
                             {--ida}
                             {--func}';
     protected $description = 'Analyze';
@@ -20,21 +22,25 @@ class Analyze extends Command
     {
         $this->anal = app(BbAnalyzer::class);
 
-        if ($this->option('basic')) {
+
+        if ($this->option('basic') || $this->option('all')) {
             $this->anal->parseInfo();
             $this->anal->analyzeAllBlocks();
         }
 
-        if ($this->option('flow')) {
+        if ($this->option('flow') || $this->option('all')) {
             $this->anal->parseFlowLog();
+        }
+
+        if ($this->option('over') || $this->option('all')) {
             $this->anal->fixOverlappedBlocks();
         }
 
-        if ($this->option('ida')) {
+        if ($this->option('ida') || $this->option('all')) {
             $this->anal->parseFunc();
         }
 
-        if ($this->option('func')) {
+        if ($this->option('func') || $this->option('all')) {
             $this->anal->assignSubroutines();
         }
     }

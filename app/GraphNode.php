@@ -14,11 +14,6 @@ class GraphNode extends Model
         return $this->belongsTo(Subroutine::class);
     }
 
-    public function symbol()
-    {
-        return $this->belongsTo(Symbol::class, 'subroutine_id');
-    }
-
     public function links()
     {
         return $this->hasMany(GraphLink::class, 'source_id');

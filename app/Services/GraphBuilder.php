@@ -114,12 +114,12 @@ class GraphBuilder
 
     public function isCopy($pending)
     {
-        return array_key_exists($pending->item->id, $this->visits);
+        return array_key_exists($pending->item->addr, $this->visits);
     }
 
     public function markVisit($pending)
     {
-        $this->visits[$pending->item->id] = $pending;
+        $this->visits[$pending->item->addr] = $pending;
     }
 
     public function buildSubroutine($pending)
@@ -153,7 +153,8 @@ class GraphBuilder
                 // skip on ret, need is_bidi.
                 if ($block->jump_mnemonic == 'ret') {
                     if ($next = $flow->block) {
-                        if ($next->id != $next->subroutine_id) continue;
+                        // return to (...) and next block is start of function
+                        if ($next->addr != $next->subroutine->addr) continue;
                     } else {
                         continue;
                     }
@@ -161,7 +162,7 @@ class GraphBuilder
 
                 if ($next = $flow->block) {
                     if ($next->subroutine_id == $subroutine->id) continue;
-                    if (array_key_exists($next->id, $targets)) continue;
+                    if (array_key_exists($next->addr, $targets)) continue;
 
                     $this->pendings[] = (object)[
                         'item' => $next->subroutine,
@@ -169,11 +170,11 @@ class GraphBuilder
                         'last' => $node->id,
                     ];
 
-                    $targets[ $next->id ] = true;
+                    $targets[ $next->addr ] = true;
                 }
 
                 if ($next = $flow->symbol) {
-                    if (array_key_exists($next->id, $targets)) continue;
+                    if (array_key_exists($next->addr, $targets)) continue;
 
                     $this->pendings[] = (object)[
                         'item' => $next,
@@ -181,7 +182,7 @@ class GraphBuilder
                         'last' => $node->id
                     ];
 
-                    $targets[ $next->id ] = true;
+                    $targets[ $next->addr ] = true;
                 }
             }
         }
@@ -215,7 +216,7 @@ class GraphBuilder
 
         foreach($symbol->nextFlows as $flow) {
             if ($next = $flow->block) {
-                if ($next->subroutine_id != $next->id) continue;
+                if ($next->subroutine->addr != $next->addr) continue;
 
                 $this->pendings[] = (object)[
                     'item' => $next->subroutine,

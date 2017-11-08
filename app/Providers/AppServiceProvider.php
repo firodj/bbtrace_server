@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use App\Services\BbAnalyzer;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use App\Block;
+use App\Symbol;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,5 +22,13 @@ class AppServiceProvider extends ServiceProvider
             $bb_analyzer = new BbAnalyzer(env('APP_EXE'));
             return $bb_analyzer;
         });
+    }
+
+    public function boot()
+    {
+        Relation::morphMap([
+            'symbols' => Symbol::class,
+            'blocks' => Block::class,
+        ]);
     }
 }
