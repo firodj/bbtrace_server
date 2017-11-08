@@ -10,3 +10,7 @@ function bbtrace_name($file_name, $suffix)
     if (!is_null($suffix)) $name .= '.'. $suffix;
     return $name;
 }
+
+function make_key($model) {
+    return sprintf('%s_%d', $model->getTable(), $model->id);
+}

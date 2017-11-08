@@ -51,29 +51,35 @@ class SubroutineController extends Controller
 
         $result['blocks'] = $subroutine->blocks->map(function ($block) use (&$aliens, &$links) {
             // mark this block is not alien
-            $aliens[ $block->id ] = false;
+
+            $aliens[ make_key($block) ] = false;
 
             // Form flow
             foreach($block->nextFlows as $flow) {
-                $key = sprintf("%s-%s", $block->id, $flow->block_id);
+                if ($block->jump_mnemonic == 'ret') {
+                    continue;
+                }
+                $key = sprintf("%s-%s", make_key($block), make_key($flow->block));
                 $links[$key] = [
-                    'source_id' => $block->id,
-                    'target_id' => $flow->block_id,
+                    'source_id' => make_key($block),
+                    'target_id' => make_key($flow->block),
                     'key' => $key,
                 ];
-                if (! array_key_exists($flow->block_id, $aliens)) {
-                    $aliens[ $flow->block_id ] = true;
+                if (! array_key_exists( make_key($flow->block), $aliens)) {
+                    $aliens[ make_key($flow->block) ] = true;
                 }
                 if ($block->jump_mnemonic == 'call') {
-                    $end_block = Block::where('addr', $block->end)->firstOrFail();
-                    $key = sprintf("%s-%s", $block->id, $end_block->id);
-                    $links[$key] = [
-                        'source_id' => $block->id,
-                        'target_id' => $end_block->id,
-                        'key' => $key,
-                    ];
-                    if (! array_key_exists($end_block->id, $aliens)) {
-                        $aliens[ $end_block->id ] = true;
+                    $end_block = Block::where('addr', $block->end)->first();
+                    if ($end_block) {
+                        $key = sprintf("%s-%s", make_key($block), make_key($end_block));
+                        $links[$key] = [
+                            'source_id' => make_key($block),
+                            'target_id' => make_key($end_block),
+                            'key' => $key,
+                        ];
+                        if (! array_key_exists(make_key($end_block), $aliens)) {
+                            $aliens[ make_key($end_block) ] = true;
+                        }
                     }
                 }
             }
@@ -90,9 +96,12 @@ class SubroutineController extends Controller
                 $block->codes = $codes;
             }
 
-            $block->type = 'block';
+            $result = $block->toArray();
 
-            return $block;
+            $result['type'] = 'block';
+            $result['id'] = make_key($block);
+
+            return $result;
         });
 
         $result['links'] = array_values($links);
@@ -105,35 +114,41 @@ class SubroutineController extends Controller
                 'type' => 'unknown'
             ];
 
-            continue;
-            /**
-            $subroutine = Subroutine::find($id);
-            if ($subroutine) {
-                $alien = [
-                    'id' => $id,
-                    'type' => 'subroutine',
-                    'name' => $subroutine->name,
-                ];
-            } else {
-                $symbol = Symbol::with('module')->find($id);
+            $keyz = explode('_', $id);
+
+            if ($keyz[0] == 'subroutines') {
+                $subroutine = Subroutine::find($keyz[1]);
+                if ($subroutine) {
+                    $alien = [
+                        'id' => $id,
+                        'addr' => $subroutine->addr,
+                        'type' => 'subroutine',
+                        'name' => $subroutine->name,
+                    ];
+                }
+            }
+            else if ($keyz[0] == 'symbols') {
+                $symbol = Symbol::with('module')->find($keyz[1]);
                 if ($symbol) {
                     $alien = [
                         'id' => $id,
+                        'addr' => $symbol->addr,
                         'type' => 'symbol',
                         'name' => $symbol->getDisplayName()
                     ];
-                } else {
-                    $block = Block::with('subroutine')->find($id);
-                    if ($block) {
-                        $alien = [
-                            'id' => $id,
-                            'type' => 'other',
-                            'name' => $block->subroutine->name
-                        ];
-                    }
                 }
             }
-             **/
+            else if ($keyz[0] == 'blocks') {
+                $block = Block::with('subroutine')->find($keyz[1]);
+                if ($block) {
+                    $alien = [
+                        'id' => $id,
+                        'addr' => $block->addr,
+                        'type' => 'other',
+                        'name' => $block->subroutine->name
+                    ];
+                }
+            }
 
             $result['blocks'][] = $alien;
         }

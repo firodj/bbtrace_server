@@ -79,7 +79,7 @@ class GraphBuilder
         return [
             'nodes' => array_values($nodes),
             'links' => $links,
-            'subroutine_id' => $first_node->subroutine_id,
+            'subroutine_id' => $first_node->subroutine_type == 'subroutines' ? $first_node->subroutine_id : 0,
         ];
     }
 
