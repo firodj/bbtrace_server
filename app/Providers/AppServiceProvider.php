@@ -7,6 +7,7 @@ use App\Services\BbAnalyzer;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use App\Block;
 use App\Symbol;
+use App\Subroutine;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         Relation::morphMap([
             'symbols' => Symbol::class,
             'blocks' => Block::class,
+            'subroutines' => Subroutine::class,
         ]);
     }
 }

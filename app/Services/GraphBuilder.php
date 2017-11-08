@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Subroutine;
+use App\Block;
 use App\Symbol;
 use App\GraphNode;
 use App\GraphLink;
@@ -27,7 +28,7 @@ class GraphBuilder
         $links = [];
 
         // getPrevious
-        foreach ($first_node->copies as $node) {
+        foreach ($first_node->copies()->get() as $node) {
             foreach ($node->prevLinks as $link) {
                 $links[] = $link->toArray();
 
@@ -130,6 +131,7 @@ class GraphBuilder
 
         $node = new GraphNode();
         $node->subroutine_id = $subroutine->id;
+        $node->subroutine_type = $subroutine->getTable();
         $node->label = $subroutine->name;
         $node->is_copy = $isCopy;
         $node->is_symbol = false;
@@ -150,9 +152,11 @@ class GraphBuilder
 
         foreach($subroutine->blocks as $block) {
             foreach($block->nextFlows as $flow) {
+                $next = $flow->block;
+
                 // skip on ret, need is_bidi.
                 if ($block->jump_mnemonic == 'ret') {
-                    if ($next = $flow->block) {
+                    if ($next instanceof Block) {
                         // return to (...) and next block is start of function
                         if ($next->addr != $next->subroutine->addr) continue;
                     } else {
@@ -160,7 +164,7 @@ class GraphBuilder
                     }
                 }
 
-                if ($next = $flow->block) {
+                if ($next instanceof Block) {
                     if ($next->subroutine_id == $subroutine->id) continue;
                     if (array_key_exists($next->addr, $targets)) continue;
 
@@ -171,9 +175,7 @@ class GraphBuilder
                     ];
 
                     $targets[ $next->addr ] = true;
-                }
-
-                if ($next = $flow->symbol) {
+                } else if ($next instanceof Symbol) {
                     if (array_key_exists($next->addr, $targets)) continue;
 
                     $this->pendings[] = (object)[
@@ -198,6 +200,7 @@ class GraphBuilder
 
         $node = new GraphNode();
         $node->subroutine_id = $symbol->id;
+        $node->subroutine_type = $symbol->getTable();
         $node->label = $symbol->getDisplayName();
         $node->is_copy = $isCopy;
         $node->is_symbol = true;
@@ -215,7 +218,8 @@ class GraphBuilder
         $this->markVisit($pending);
 
         foreach($symbol->nextFlows as $flow) {
-            if ($next = $flow->block) {
+            $next = $flow->block;
+            if ($next instanceof Block) {
                 if ($next->subroutine->addr != $next->addr) continue;
 
                 $this->pendings[] = (object)[
@@ -223,8 +227,7 @@ class GraphBuilder
                     'xref' => $flow->xref,
                     'last' => $node->id
                 ];
-            }
-            if ($next = $flow->symbol) {
+            } else if ($next instanceof Symbol) {
                 $this->pendings[] = (object)[
                     'item' => $next,
                     'xref' => $flow->xref,

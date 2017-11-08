@@ -17,6 +17,7 @@ class CreateTableGraphNodesAndGraphLinks extends Migration
         {
             $table->increments('id');
             $table->integer('subroutine_id')->index();
+            $table->string('subroutine_type')->index();
             $table->string('label', 512);
             $table->boolean('is_symbol');
             $table->boolean('is_copy');

@@ -11,7 +11,7 @@ class GraphNode extends Model
 
     public function subroutine()
     {
-        return $this->belongsTo(Subroutine::class);
+        return $this->morphTo();
     }
 
     public function links()
@@ -24,8 +24,9 @@ class GraphNode extends Model
         return $this->hasMany(GraphLink::class, 'target_id');
     }
 
-    public function copies()
+    public function scopeCopies($query)
     {
-        return $this->hasMany(GraphNode::class, 'subroutine_id', 'subroutine_id');
+        return $query->where('subroutine_id', $this->subroutine_id)
+                     ->where('subroutine_type', $this->subroutine_type);
     }
 }

@@ -17,12 +17,12 @@ class Symbol extends Model
 
     public function flows()
     {
-        return $this->hasMany(Flow::class, 'id');
+        return $this->morphMany(Flow::class, 'block');
     }
 
     public function nextFlows()
     {
-        return $this->hasMany(Flow::class, 'last_block_id');
+        return $this->morphMany(Flow::class, 'last_block');
     }
 
     public function getDisplayName()
