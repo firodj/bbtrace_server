@@ -25,7 +25,12 @@ class AnalyzeSubroutine extends Command
         $this->anal = new SubroutineAnalyzer();
 
         if ($binaryFile = $this->option('binary')) {
-            $this->anal->binary($id);
+            $data = $this->anal->binary($id, true);
+            if (file_exists($binaryFile)) {
+                $this->error("File exists $binaryFile");
+            } else {
+                file_put_contents($binaryFile, $data);
+            }
             return;
         }
 

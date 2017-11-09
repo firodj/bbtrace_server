@@ -449,6 +449,7 @@ class BbAnalyzer
                         $this->assignSubroutineByFlow($block);
                     } else if (($block->addr & 0xf) == 0) { // align 10h
                         // GUEST!
+                        /*
                         $subroutine = $this->createSubroutineByBlock($block, 'callback');
                         $block->subroutine_id = $subroutine->id;
                         $block->save();
@@ -456,6 +457,7 @@ class BbAnalyzer
                         fprintf(STDERR, "Assign by callback %X (%X)\n", $block->id, $block->subroutine_id);
 
                         $this->assignSubroutineByFlow($block);
+                         */
                     }
                 }
             });

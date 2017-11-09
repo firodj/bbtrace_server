@@ -256,25 +256,6 @@ class SubroutineAnalyzer
         return $state;
     }
 
-    public function binary(int $subroutine_id)
-    {
-        $subroutine = Subroutine::findOrFail($subroutine_id);
-
-        printf("Binary subs: 0x%x %s\n", $subroutine->id, $subroutine->name);
-
-        $prev = null;
-        $subroutine->blocks->each(function ($block) use(&$prev) {
-            $data = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
-            if (!is_null($prev)) {
-                if ($prev->end != $block->id) {
-                    printf("Missing: 0x%x - 0x%x\n", $prev->end, $block->id);
-                }
-            }
-            printf("Block: 0x%x - 0x%x\n", $block->id, $block->end);
-            $prev = $block;
-        });
-    }
-
     public function graph(int $subroutine_id)
     {
         $subroutine = Subroutine::with('blocks')->with('module')->find($subroutine_id);
@@ -287,33 +268,45 @@ class SubroutineAnalyzer
         $result['blocks'] = $subroutine->blocks->map(function ($block) use (&$aliens, &$links) {
             // mark this block is not alien
 
-            $aliens[ make_key($block) ] = false;
+            $a = make_key($block);
+            $aliens[ $a ] = false;
 
             // Form flow
             foreach($block->nextFlows as $flow) {
                 if ($block->jump_mnemonic == 'ret') {
                     continue;
                 }
-                $key = sprintf("%s-%s", make_key($block), make_key($flow->block));
+
+                $b = make_key($flow->block);
+                if ($block->jump_mnemonic == 'call') {
+                    $b .= '_'.count($aliens);
+                }
+
+                $key = sprintf("%s-%s", $a, $b);
+
                 $links[$key] = [
-                    'source_id' => make_key($block),
-                    'target_id' => make_key($flow->block),
+                    'source_id' => $a,
+                    'target_id' => $b,
                     'key' => $key,
                 ];
-                if (! array_key_exists( make_key($flow->block), $aliens)) {
-                    $aliens[ make_key($flow->block) ] = true;
+
+                if (! array_key_exists( $b, $aliens)) {
+                    $aliens[ $b ] = true;
                 }
+
                 if ($block->jump_mnemonic == 'call') {
-                    $end_block = Block::where('addr', $block->end)->first();
-                    if ($end_block) {
-                        $key = sprintf("%s-%s", make_key($block), make_key($end_block));
+                    $succ_block = Block::where('addr', $block->end)->first();
+                    if ($succ_block) {
+                        $c = make_key($succ_block);
+
+                        $key = sprintf("%s-%s", $b, $c);
                         $links[$key] = [
-                            'source_id' => make_key($block),
-                            'target_id' => make_key($end_block),
+                            'source_id' => $b,
+                            'target_id' => $c,
                             'key' => $key,
                         ];
-                        if (! array_key_exists(make_key($end_block), $aliens)) {
-                            $aliens[ make_key($end_block) ] = true;
+                        if (! array_key_exists($c, $aliens)) {
+                            $aliens[ $c ] = true;
                         }
                     }
                 }
@@ -334,7 +327,7 @@ class SubroutineAnalyzer
             $result = $block->toArray();
 
             $result['type'] = 'block';
-            $result['id'] = make_key($block);
+            $result['id'] = $a;
 
             return $result;
         });
@@ -390,4 +383,40 @@ class SubroutineAnalyzer
 
         return $result;
     }
+
+    public function binary(int $subroutine_id, bool $whole)
+    {
+        $subroutine = Subroutine::findOrFail($subroutine_id);
+
+        printf("Binary subs #%d: 0x%x - 0x%x (%d) %s\n", $subroutine->id, 
+            $subroutine->addr,
+            $subroutine->end,
+            $subroutine->getSize(),
+            $subroutine->name);
+
+        if ($whole) {
+            $result = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($subroutine->getRva(), $subroutine->getSize());
+            return $result;
+        }
+
+        $result = '';
+
+        $prev = null;
+        foreach ($subroutine->blocks()->orderBy('addr')->get() as $block) {
+            $data = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
+            if (!is_null($prev)) {
+                if ($prev->end != $block->addr) {
+                    printf("Missing: 0x%x - 0x%x\n", $prev->end, $block->addr);
+                    $size = $block->addr - $prev->end;
+                    $result .= str_repeat("\x90", $size);
+                }
+            }
+            printf("Block #%d: 0x%x - 0x%x\n", $block->id, $block->addr, $block->end);
+            $result .= $data;
+            $prev = $block;
+        };
+
+        return $result;
+    }
+
 }

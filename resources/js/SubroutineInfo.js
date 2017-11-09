@@ -103,11 +103,11 @@ class SubroutineInfo extends Component<Props, State> {
       <div style={styles.simpleBlock}>
         <div>
           <span style={styles.smallCell}>address</span>
-          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.addr) }</span>
+          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.addr) } - { sprintf("0x%x", this.state.info.end) }</span>
         </div>
         <div>
-          <span style={styles.smallCell}>end</span>
-          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.end) }</span>
+          <span style={styles.smallCell}>id</span>
+          <span style={styles.cell}>{ this.state.info.id }</span>
         </div>
         <div>
           <span style={styles.smallCell}>name</span>
