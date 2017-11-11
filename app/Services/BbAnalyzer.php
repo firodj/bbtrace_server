@@ -5,6 +5,8 @@ namespace App\Services;
 use Exception;
 use App\Module;
 use App\Block;
+use App\Instruction;
+use App\Operand;
 use App\Flow;
 use App\Symbol;
 use App\Subroutine;
@@ -203,7 +205,53 @@ class BbAnalyzer
     {
         $data = $this->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
         $insn = cs_disasm($this->capstone, $data, $block->addr);
-        return $insn;
+
+        foreach ($insn as $ins) {
+            $inst = Instruction::where('addr', $ins->address)->first();
+
+            if (! $inst) {
+                $inst = new Instruction;
+                $inst->block_id = $block->id;
+                $inst->mne = $ins->mnemonic;
+                $inst->addr = $ins->address;
+                $inst->end = $ins->address + count($ins->bytes);
+                $inst->save();
+
+                $detail = $ins->detail->x86;
+
+                foreach($detail->operands as $i => $opr) {
+                    $opnd = new Operand;
+                    $opnd->pos = $i;
+                    $opnd->size = $opr->size;
+                    $opnd->type = $opr->type;
+
+                    switch($opr->type) {
+                    case "reg":
+                        $opnd->reg = $opr->reg;
+                        break;
+
+                    case "imm":
+                        $opnd->imm = $opr->imm;
+                        break;
+
+                    case "mem":
+                        $opnd->reg = $opr->mem->base;
+                        $opnd->index = $opr->mem->index;
+                        $opnd->scale = $opr->mem->scale;
+                        $opnd->imm = $opr->mem->disp;
+                        $opnd->seg = $opr->mem->segment;
+                        break;
+
+                    default:
+                        throw new Exception('Unknown operand type ' . $opr->type);
+                    }
+
+                    $inst->operands()->save($opnd);
+                }
+            }
+        }
+
+        return count($insn);
     }
 
     /**

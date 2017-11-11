@@ -315,12 +315,13 @@ class SubroutineAnalyzer
             // If no codes disasm
             if (! $block->codes ) {
                 $codes = [];
-                $insn = app(BbAnalyzer::class)->disasmBlock($block);
-                foreach($insn as &$ins) {
-                    $codes[] = [
-                        'code' => sprintf("%s %s", $ins->mnemonic, $ins->op_str)
-                    ];
+                if ($block->instructions->count() == 0) {
+                    app(BbAnalyzer::class)->disasmBlock($block);
                 }
+                $codes = $block->instructions()->get()->map(function ($inst)
+                {
+                    return ['code' => $inst->toString()];
+                });
                 $block->codes = $codes;
             }
 

@@ -29,6 +29,11 @@ class Block extends Model
         return $this->belongsTo(Subroutine::class);
     }
 
+    public function instructions()
+    {
+        return $this->hasMany(Instruction::class)->orderBy('addr', 'asc');
+    }
+
     public function references()
     {
         return $this->hasMany(Reference::class);

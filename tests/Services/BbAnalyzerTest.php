@@ -1,6 +1,8 @@
 <?php
 
 use App\Services\BbAnalyzer;
+use App\Block;
+use PhpAnsiColor\Color;
 
 class BbAnalyzerTest extends TestCase
 {
@@ -32,6 +34,17 @@ class BbAnalyzerTest extends TestCase
 
         $inst = $this->anal->disasmBlock($block);
         $this->assertEquals(1, count($inst));
+        $block->instructions()->delete();
+
+        // ---
+        $block = Block::where('addr', 0x418b70)->first();
+        $inst = $this->anal->disasmBlock($block);
+
+        $block = $block->fresh();
+        $block->instructions->each(function ($ins) {
+            echo Color::set(sprintf("%08x:\t", $ins->addr), 'blue');
+            echo Color::set(sprintf("%s\n", $ins->toString()), 'yellow');
+        });
     }
 
     public function testAnalyzeAllBlocks()
