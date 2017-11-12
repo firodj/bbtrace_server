@@ -21,11 +21,11 @@ class OperandTest extends TestCase
     {
         $opnd = $this->opnd_mem;
 
-        $this->assertEquals("dword ptr [eax + ecx * 2 + 0x28]", $opnd->toString());
+        $this->assertEquals("dword ptr [eax + ecx * 2 + 40]", $opnd->toString());
 
         $opnd->reg = null;
 
-        $this->assertEquals("dword ptr [ecx * 2 + 0x28]", $opnd->toString());
+        $this->assertEquals("dword ptr [ecx * 2 + 40]", $opnd->toString());
     }
 
     public function testToStringWhenReg()
@@ -43,7 +43,7 @@ class OperandTest extends TestCase
         $opnd->type = 'imm';
         $opnd->imm = 100;
 
-        $this->assertEquals("0x64", $opnd->toString());
+        $this->assertEquals("100", $opnd->toString());
     }
 
     public function testMemNormalize()
@@ -89,4 +89,19 @@ class OperandTest extends TestCase
 
         $this->assertTrue($opnd->memIsDirect());
     }
+
+    public function testMemIsIndirect()
+    {
+        $opnd = $this->opnd_mem;
+
+        $this->assertFalse($opnd->memIsDirect());
+
+        // ---
+        $opnd = new Operand();
+        $opnd->type = 'mem';
+        $opnd->reg = 'esi';
+
+        $this->assertTrue($opnd->memIsIndirect());
+    }
+
 }

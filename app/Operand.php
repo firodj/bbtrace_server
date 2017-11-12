@@ -16,6 +16,11 @@ class Operand extends Model
         return $this->belongsTo(Instruction::class);
     }
 
+    public function expression()
+    {
+        return $this->belongsTo(Expression::class);
+    }
+
     public function memNormalize()
     {
         if ($this->type != 'mem') return;
@@ -42,7 +47,7 @@ class Operand extends Model
         case 'reg':
             return $this->reg;
         case 'imm':
-            return sprintf('0x%x', $this->imm);
+            return sprintf('%d', $this->imm);
         case 'mem':
             $x = [];
             if ($this->reg) {
@@ -59,7 +64,7 @@ class Operand extends Model
             }
             if ($this->imm) {
                 if (count($x) > 0) $x[] = '+';
-                $x[] = sprintf('0x%x', $this->imm);
+                $x[] = sprintf('%d', $this->imm);
             }
 
             switch ($this->size) {
@@ -81,6 +86,13 @@ class Operand extends Model
         return ($this->type == 'mem' &&
             is_null($this->index) &&
             is_null($this->reg)
+        );
+    }
+
+    public function memIsIndirect(): bool {
+        return ($this->type == 'mem' &&
+            is_null($this->index) &&
+            empty($this->imm)
         );
     }
 }

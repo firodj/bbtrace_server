@@ -16,13 +16,18 @@ class CreateTableExpressions extends Migration
         Schema::create('expressions', function (Blueprint $table)
         {
             $table->increments('id');
-            $table->integer('operand_id')->index();
+            $table->integer('parent_id')->nullable()->index();
             $table->tinyInteger('pos')->default(0);
             $table->string('type');
-            $table->integer('size');
-            $table->integer('parent_id')->nullable()->index();
+            $table->integer('size')->default(0);
             $table->bigInteger('const')->nullable();
             $table->integer('domain')->nullable();
+        });
+
+        Schema::table('operands', function (Blueprint $table)
+        {
+            $table->integer('expression_id')->nullable();
+
         });
     }
 
@@ -34,5 +39,10 @@ class CreateTableExpressions extends Migration
     public function down()
     {
         Schema::dropIfExists('expressions');
+
+        Schema::table('operands', function (Blueprint $table)
+        {
+            $table->dropColumn('expression_id');
+        });
     }
 }

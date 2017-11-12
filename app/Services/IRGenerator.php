@@ -10,6 +10,7 @@ use App\Block;
 
 class IRGenerator
 {
+    const MEMORY_DOMAIN = 1;
     const REGISTER_DOMAIN = 1000;
 
     public function generate(Block $block)
@@ -26,30 +27,86 @@ class IRGenerator
 
     public function createExpressionFromOperand(Operand $opnd)
     {
+        if ($opnd->expression) return $opnd->expression;
+
+        $expr = null;
+
         switch ($opnd->type) {
         case 'reg':
-            $expr = $this->createRegExpression($opnd->reg);
-            return $expr;
+            $expr = $this->makeRegExpression($opnd->reg);
+            $expr->save();
 
             break;
         case 'imm':
-            $expr = $this->createConstExpression($opnd->imm, $opnd->size);
+            $expr = $this->makeConstExpression($opnd->imm, $opnd->size);
+            $expr->save();
+
             break;
 
         case 'mem':
-            // TODO:
-            // 
+            $expr = new Expression();
+            $expr->size = $opnd->size;
+
+            if ($opnd->memIsDirect()) {
+                $expr->type = Expression::MEMORY_TYPE;
+                $expr->domain = self::MEMORY_DOMAIN;
+                $expr->const = $opnd->imm;
+                $expr->save();
+            } elseif ($opnd->memIsIndirect()) {
+                $expr->type = Expression::DEREF_TYPE;
+                $expr->save();
+
+                $base_expr = $this->makeRegExpression($opnd->reg);
+                $expr->addChild($base_expr);
+            } else {
+                $expr->type = Expression::DEREF_TYPE;
+                $expr->save();
+
+                $add_expr = new Expression();
+                $add_expr->type = Expression::ADD_TYPE;
+                $expr->addChild($add_expr);
+
+                if ($opnd->reg) {
+                    $base_expr = $this->makeRegExpression($opnd->reg);
+                    $add_expr->addChild($base_expr);
+                }
+
+                if ($opnd->index) {
+                    $index_expr = $this->makeRegExpression($opnd->index);
+                    if ($opnd->scale) {
+                        $scale_expr = $this->makeConstExpression($opnd->scale, 0);
+
+                        $mul_expr = new Expression();
+                        $mul_expr->type = Expression::MUL_TYPE;
+
+                        $add_expr->addChild($mul_expr);
+
+                        $mul_expr->addChild($index_expr);
+                        $mul_expr->addChild($scale_expr);
+
+                    } else {
+                        $add_expr->addChild($index_expr);
+                    }
+                }
+
+                if ($opnd->imm) {
+                    $disp_expr = $this->makeConstExpression($opnd->imm, 0);
+                    $add_expr->addChild($disp_expr);
+                }
+            }
             break;
         default:
             throw new Exception('Unknown operand type');
         }
 
-        $expr->operand_id = $opnd->id;
+        $opnd->expression_id = $expr->id;
+        $opnd->save();
+
         return $expr;
     }
 
 
-    public function createConstExpression($const, $size)
+    public function makeConstExpression($const, $size)
     {
         $expr = new Expression();
         $expr->type = Expression::CONST_TYPE;
@@ -60,7 +117,7 @@ class IRGenerator
         return $expr;
     }
 
-    public function createRegExpression(string $reg)
+    public function makeRegExpression(string $reg)
     {
         static $X86_REGISTERS = [
             'eip' => [0, 0, 32],
