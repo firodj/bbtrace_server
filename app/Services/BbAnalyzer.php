@@ -222,7 +222,7 @@ class BbAnalyzer
                 foreach($detail->operands as $i => $opr) {
                     $opnd = new Operand;
                     $opnd->pos = $i;
-                    $opnd->size = $opr->size;
+                    $opnd->size = $opr->size * 8;
                     $opnd->type = $opr->type;
 
                     switch($opr->type) {
@@ -240,6 +240,7 @@ class BbAnalyzer
                         $opnd->scale = $opr->mem->scale;
                         $opnd->imm = $opr->mem->disp;
                         $opnd->seg = $opr->mem->segment;
+                        $opnd->memNormalize();
                         break;
 
                     default:

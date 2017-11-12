@@ -3,6 +3,7 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Exception;
 
 class Operand extends Model
 {
@@ -13,6 +14,26 @@ class Operand extends Model
     public function instruction()
     {
         return $this->belongsTo(Instruction::class);
+    }
+
+    public function memNormalize()
+    {
+        if ($this->type != 'mem') return;
+
+        if (! $this->reg) {
+            // move index into base when no scale
+            if ($this->index) {
+                if (!$this->scale) {
+                    $this->reg = $this->index;
+                    $this->index = null;
+                }
+            } else {
+                // no base and index, and disp also null
+                if (is_null($this->imm)) {
+                    $this->imm = 0;
+                }
+            }
+        }
     }
 
     public function toString()
@@ -42,14 +63,24 @@ class Operand extends Model
             }
 
             switch ($this->size) {
-            case 1:
+            case 8:
                 return sprintf('byte ptr [%s]', implode(' ', $x));
-            case 2:
+            case 16:
                 return sprintf('word ptr [%s]', implode(' ', $x));
-            case 4:
+            case 32:
                 return sprintf('dword ptr [%s]', implode(' ', $x));
+            case 64:
+                return sprintf('qword ptr [%s]', implode(' ', $x));
+            default:
+                throw new Exception('Unknown memory operand size');
             }
         }
     }
 
+    public function memIsDirect(): bool {
+        return ($this->type == 'mem' &&
+            is_null($this->index) &&
+            is_null($this->reg)
+        );
+    }
 }

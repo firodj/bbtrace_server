@@ -27,7 +27,7 @@ class CreateTableInstructions extends Migration
             $table->increments('id');
             $table->integer('instruction_id')->index();
             $table->tinyInteger('pos')->index();
-            $table->tinyInteger('size');
+            $table->integer('size');
             $table->string('type');
 
             $table->string('reg')->nullable();
