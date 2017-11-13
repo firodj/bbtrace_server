@@ -104,4 +104,8 @@ class OperandTest extends TestCase
         $this->assertTrue($opnd->memIsIndirect());
     }
 
+    public function testMakeSigned()
+    {
+        $this->assertEquals(-1, Operand::makeSigned(4294967295, 32));
+    }
 }

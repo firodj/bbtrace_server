@@ -37,7 +37,7 @@ const emptyInfo = {
 
 const BlockContent = ({ block }) => {
   const lines = [];
-  lines.push( <tspan key="label" x="0" y="0">{ sprintf("0x%x:", block.addr) }</tspan> );
+  lines.push( <tspan key="label" x="0" y="0" fontWeight="bold">{ sprintf("%d:", block.addr) }</tspan> );
 
   if (block.type == 'block') {
 
@@ -103,7 +103,7 @@ class SubroutineInfo extends Component<Props, State> {
       <div style={styles.simpleBlock}>
         <div>
           <span style={styles.smallCell}>address</span>
-          <span style={styles.cell}>{ sprintf("0x%x", this.state.info.addr) } - { sprintf("0x%x", this.state.info.end) }</span>
+          <span style={styles.cell}>{ sprintf("%d", this.state.info.addr) } - { sprintf("%d", this.state.info.end) }</span>
         </div>
         <div>
           <span style={styles.smallCell}>id</span>

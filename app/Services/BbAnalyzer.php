@@ -11,6 +11,7 @@ use App\Flow;
 use App\Symbol;
 use App\Subroutine;
 use App\Reference;
+use App\Expression;
 
 class BbAnalyzer
 {
@@ -248,6 +249,8 @@ class BbAnalyzer
                     }
 
                     $inst->operands()->save($opnd);
+
+                    Expression::createExpressionFromOperand($opnd);
                 }
             }
         }

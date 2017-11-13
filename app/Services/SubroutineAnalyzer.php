@@ -7,6 +7,7 @@ use App\Code;
 use App\Block;
 use App\Symbol;
 use App\Decompiler;
+use App\Expression;
 use PhpAnsiColor\Color;
 
 use Exception;
@@ -17,10 +18,29 @@ class SubroutineAnalyzer
     public $reg_revisions = [];
     public $mnemonics = [];
 
+    public function exgen(int $subroutine_id)
+    {
+        $subroutine = Subroutine::findOrFail($subroutine_id);
+        $this->subroutine_id = $subroutine_id;
+
+        $subroutine->blocks->each(function ($block) {
+            if ($block->instructions()->count() == 0) {
+                app(BbAnalyzer::class)->disasmBlock($block);
+            }
+
+            foreach($block->instructions as $inst) {
+                foreach ($inst->operands as $opnd) {
+                    Expression::createExpressionFromOperand($opnd);
+                }
+                echo $inst->toString() . PHP_EOL;
+            }
+        });
+    }
+
     public function analyze(int $subroutine_id)
     {
         $subroutine = Subroutine::findOrFail($subroutine_id);
-        $this->subroutine_id;
+        $this->subroutine_id = $subroutine_id;
 
         printf("Analyze subs: 0x%x %s\n", $subroutine->id, $subroutine->name);
 
@@ -50,6 +70,7 @@ class SubroutineAnalyzer
 
             if (array_key_exists($block_id, $blocks)) {
                 $block = $blocks[$block_id];
+
                 $state = $this->analyzeBlock($block, $state);
 
                 if ($block->jump_mnemonic == 'call') {
@@ -145,21 +166,16 @@ class SubroutineAnalyzer
         return $return_states;
     }
 
-    public function analyzeBlock($block, $state)
+    public function analyzeBlock(Block $block, $state)
     {
         echo Color::set(sprintf("\n0x%x:\n", $block->id), 'bold+underline');
 
         // Form instruction
-        $insn = app(BbAnalyzer::class)->disasmBlock($block);
-        foreach($insn as &$ins) {
+        foreach($block->instructions as $inst) {
             echo "\t";
-            echo Color::set(sprintf("0x%x: ", $ins->address), 'yellow');
+            echo Color::set(sprintf("0x%x: ", $inst->address), 'yellow');
             echo Color::set(sprintf("%s\t", $ins->mnemonic), 'blue');
             echo Color::set(sprintf("%s\n", $ins->op_str), 'magenta');
-
-            if ($ins->mnemonic == 'mov') {
-                //dump($ins);
-            }
 
             $mne = null;
             switch ($ins->mnemonic) {

@@ -9,6 +9,8 @@ use App\Block;
 use App\Symbol;
 use App\Subroutine;
 use App\Instruction;
+use App\Expression;
+use App\Operand;
 use App\Observers;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         Instruction::observe(Observers\Instruction::class);
+        Expression::observe(Observers\Expression::class);
+        Operand::observe(Observers\Operand::class);
     }
 
     /**

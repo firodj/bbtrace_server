@@ -9,6 +9,7 @@ class AnalyzeSubroutine extends Command
 {
     protected $signature = 'analyze:subroutine
                             {id : Subroutine Id}
+                            {--exgen : expression generate}
                             {--binary=BINARY : output binary}';
 
     protected $description = 'Analyze Subroutine';
@@ -23,6 +24,11 @@ class AnalyzeSubroutine extends Command
         }
 
         $this->anal = new SubroutineAnalyzer();
+
+        if ($this->option('exgen')) {
+            $this->anal->exgen($id);
+            return;
+        }
 
         if ($binaryFile = $this->option('binary')) {
             $data = $this->anal->binary($id, true);

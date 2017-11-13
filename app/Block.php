@@ -34,6 +34,11 @@ class Block extends Model
         return $this->hasMany(Instruction::class)->orderBy('addr', 'asc');
     }
 
+    public function statements()
+    {
+        return $this->hasMany(Statement::class)->orderBy('pos', 'asc');
+    }
+
     public function references()
     {
         return $this->hasMany(Reference::class);
@@ -70,6 +75,20 @@ class Block extends Model
             return $name;
         }
         return 'block_'.dechex($this->addr);
+    }
+
+    public function addStatement(Statement $stmt)
+    {
+        $query = $this->statements()->select(app('db')->raw('max(pos) as max_pos'));
+        $max_pos = $query->first();
+
+        if ($max_pos && !is_null($max_pos->max_pos)) $pos = $max_pos->max_pos + 1;
+        else $pos = 0;
+
+        $stmt->pos = $pos;
+        $stmt->save();
+
+        $this->statements()->save($stmt);
     }
 }
 
