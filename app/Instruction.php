@@ -22,6 +22,19 @@ class Instruction extends Model
 
     public function toString()
     {
+        $x = $this->operands->map(function ($op) { return $op->toString(); });
+
+        $s = $this->mne;
+
+        if (count($x)) {
+            $s .= ' ' . $x->implode(', ');
+        }
+
+        return $s;
+    }
+
+    public function toExpressionString()
+    {
         $x = $this->operands->map(function ($op) { return $op->expression->toString(); });
 
         $cf = Expression::makeRegExpression('cf')->toString();

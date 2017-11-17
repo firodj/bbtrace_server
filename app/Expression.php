@@ -12,7 +12,6 @@ class Expression extends Model
     protected $guarded = [];
 
     const MEMORY_DOMAIN = 1;
-    const REGISTER_DOMAIN = 1000;
 
     const MEMORY_TYPE = 'memory';
     const CONST_TYPE = 'const';
@@ -21,6 +20,74 @@ class Expression extends Model
     const SUB_TYPE = 'sub';
     const MUL_TYPE = 'mul';
     const AND_TYPE = 'and';
+
+    const X86_REG_DOMAIN = [
+        'eip' => [1000, 0, 32],
+        'ip'  => [1000, 0, 16],
+
+        'eflags' => [1001, 0, 32],
+        'flags'  => [1001, 0, 16],
+
+        'cf' => [1001,  0,  1], // Carry flag
+        'pf' => [1001,  2,  1], // Parity flag
+        'af' => [1001,  4,  1], // Adjust flag
+        'zf' => [1001,  6,  1], // Zero flag
+        'sf' => [1001,  7,  1], // Sign flag
+        'if' => [1001,  9,  1], // Interrupt enable flag (X)
+        'df' => [1001, 10,  1], // Direction flag (C)
+        'of' => [1001, 11,  1], // Overflow flag
+
+        'eax' => [1002, 0, 32],
+        'ax'  => [1002, 0, 16],
+        'al'  => [1002, 0, 8],
+        'ah'  => [1002, 8, 8],
+
+        'ecx' => [1003, 0, 32],
+        'cx'  => [1003, 0, 16],
+        'cl'  => [1003, 0, 8],
+        'ch'  => [1003, 8, 8],
+
+        'edx' => [1004, 0, 32],
+        'dx'  => [1004, 0, 16],
+        'dl'  => [1004, 0, 8],
+        'dh'  => [1004, 8, 8],
+
+        'ebx' => [1005, 0, 32],
+        'bx'  => [1005, 0, 16],
+        'bl'  => [1005, 0, 8],
+        'bh'  => [1005, 8, 8],
+
+        'esp' => [1006, 0, 32],
+        'sp'  => [1006, 0, 16],
+        'spl'  => [1006, 0, 8],
+
+        'ebp' => [1007, 0, 32],
+        'bp'  => [1007, 0, 16],
+        'bpl'  => [1007, 0, 8],
+
+        'esi' => [1008, 0, 32],
+        'si'  => [1008, 0, 16],
+
+        'edi' => [1009, 0, 32],
+        'di'  => [1009, 0, 16],
+
+        'es'  => [1010, 0, 16],
+        'cs'  => [1011, 0, 16],
+        'ss'  => [1012, 0, 16],
+        'ds'  => [1013, 0, 16],
+        'fs'  => [1014, 0, 16],
+        'gs'  => [1015, 0, 16],
+
+        'st0'  => [1016, 0*80, 80],
+        'st1'  => [1016, 1*80, 80],
+        'st2'  => [1016, 2*80, 80],
+        'st3'  => [1016, 3*80, 80],
+        'st4'  => [1016, 4*80, 80],
+        'st5'  => [1016, 5*80, 80],
+        'st6'  => [1016, 6*80, 80],
+        'st7'  => [1016, 7*80, 80],
+    ];
+
 
     public function parent()
     {
@@ -94,107 +161,35 @@ class Expression extends Model
     public static function domainName(int $domain)
     {
         static $DOMAIN_NAMES = [
-            0 => 'ip',
-            1 => 'flags',
-            2 => 'ax',
-            3 => 'cx',
-            4 => 'dx',
-            5 => 'bx',
-            6 => 'sp',
-            7 => 'bp',
-            8 => 'si',
-            9 => 'di',
-            10 => 'es',
-            11 => 'cs',
-            12 => 'ss',
-            13 => 'ds',
-            14 => 'fs',
-            15 => 'gs',
-            16 => 'st',
-            20 => 'tmp'
+            1000 => 'ip',
+            1001 => 'flags',
+            1002 => 'ax',
+            1003 => 'cx',
+            1004 => 'dx',
+            1005 => 'bx',
+            1006 => 'sp',
+            1007 => 'bp',
+            1008 => 'si',
+            1009 => 'di',
+            1010 => 'es',
+            1011 => 'cs',
+            1012 => 'ss',
+            1013 => 'ds',
+            1014 => 'fs',
+            1015 => 'gs',
+            1016 => 'st',
         ];
 
-        if ($domain >= Expression::REGISTER_DOMAIN) {
-            return $DOMAIN_NAMES[$domain - Expression::REGISTER_DOMAIN] ?? null;
-        } else if ($domain == Expression::MEMORY_DOMAIN) {
+        if ($domain == Expression::MEMORY_DOMAIN) {
             return 'data';
+        } else {
+            return $DOMAIN_NAMES[$domain] ?? null;
         }
     }
 
     public static function registerDomain(string $reg)
     {
-        static $X86_REGISTERS = [
-            'eip' => [0, 0, 32],
-            'ip'  => [0, 0, 16],
-
-            'eflags' => [1, 0, 32],
-            'flags'  => [1, 0, 16],
-
-            'cf' => [1,  0,  1], // Carry flag
-            'pf' => [1,  2,  1], // Parity flag
-            'af' => [1,  4,  1], // Adjust flag
-            'zf' => [1,  6,  1], // Zero flag
-            'sf' => [1,  7,  1], // Sign flag
-            'if' => [1,  9,  1], // Interrupt enable flag (X)
-            'df' => [1, 10,  1], // Direction flag (C)
-            'of' => [1, 11,  1], // Overflow flag
-
-            'eax' => [2, 0, 32],
-            'ax'  => [2, 0, 16],
-            'al'  => [2, 0, 8],
-            'ah'  => [2, 8, 8],
-
-            'ecx' => [3, 0, 32],
-            'cx'  => [3, 0, 16],
-            'cl'  => [3, 0, 8],
-            'ch'  => [3, 8, 8],
-
-            'edx' => [4, 0, 32],
-            'dx'  => [4, 0, 16],
-            'dl'  => [4, 0, 8],
-            'dh'  => [4, 8, 8],
-
-            'ebx' => [5, 0, 32],
-            'bx'  => [5, 0, 16],
-            'bl'  => [5, 0, 8],
-            'bh'  => [5, 8, 8],
-
-            'esp' => [6, 0, 32],
-            'sp'  => [6, 0, 16],
-
-            'ebp' => [7, 0, 32],
-            'bp'  => [7, 0, 16],
-
-            'esi' => [8, 0, 32],
-            'si'  => [8, 0, 16],
-
-            'edi' => [9, 0, 32],
-            'di'  => [9, 0, 16],
-
-            'es'  => [10, 0, 16],
-            'cs'  => [11, 0, 16],
-            'ss'  => [12, 0, 16],
-            'ds'  => [13, 0, 16],
-            'fs'  => [14, 0, 16],
-            'gs'  => [15, 0, 16],
-
-            'st0'  => [16, 0*80, 80],
-            'st1'  => [16, 1*80, 80],
-            'st2'  => [16, 2*80, 80],
-            'st3'  => [16, 3*80, 80],
-            'st4'  => [16, 4*80, 80],
-            'st5'  => [16, 5*80, 80],
-            'st6'  => [16, 6*80, 80],
-            'st7'  => [16, 7*80, 80],
-
-            'tmpl' => [20, 0, 8],
-            'tmp'  => [20, 0, 16],
-            'etmp' => [20, 0, 32],
-        ];
-
-        $x = $X86_REGISTERS[$reg] ?? null;
-        if ($x) $x[0] = Expression::REGISTER_DOMAIN + $x[0];
-
+        $x = self::X86_REG_DOMAIN[$reg] ?? null;
         return $x;
     }
 

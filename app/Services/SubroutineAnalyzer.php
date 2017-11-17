@@ -18,6 +18,9 @@ class SubroutineAnalyzer
     public $reg_revisions = [];
     public $mnemonics = [];
 
+    /**
+     * Generate operand's expression for all instructions
+     */
     public function exgen(int $subroutine_id)
     {
         $subroutine = Subroutine::findOrFail($subroutine_id);
@@ -174,11 +177,10 @@ class SubroutineAnalyzer
         foreach($block->instructions as $inst) {
             echo "\t";
             echo Color::set(sprintf("0x%x: ", $inst->address), 'yellow');
-            echo Color::set(sprintf("%s\t", $ins->mnemonic), 'blue');
-            echo Color::set(sprintf("%s\n", $ins->op_str), 'magenta');
+            echo Color::set(sprintf("%s\n", $inst->toString()), 'blue');
 
             $mne = null;
-            switch ($ins->mnemonic) {
+            switch ($inst->mne) {
             case 'push':
                 $mne = new Decompiler\PushMne($block->id, $ins);
                 break;
@@ -336,7 +338,7 @@ class SubroutineAnalyzer
                 }
                 $codes = $block->instructions()->get()->map(function ($inst)
                 {
-                    return ['code' => $inst->toString()];
+                    return ['code' => $inst->toExpressionString()];
                 });
                 $block->codes = $codes;
             }
