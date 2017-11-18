@@ -7,19 +7,58 @@ use App\Instruction;
 
 class InstructionAnalyzerTest extends TestCase
 {
-    public function testDoMov()
+    public function setUp()
     {
-        $inst = Instruction::where('mne', 'mov')->first();
+        $this->state = State::createState();
+    }
 
-        $state = new State();
+    protected function analInst($mne)
+    {
+        $inst = Instruction::where('mne', $mne)->firstOrFail();
 
         fprintf(STDERR, "#%d: %s\n", $inst->id, $inst->toString());
 
         $anal = new InstructionAnalyzer($inst);
 
-        $anal->analyze($state);
+        $anal->analyze($this->state);
 
-        $this->assertContains($inst->id, $state->regDef('eax')->latestDef()->uses);
-        $this->assertEquals($inst->id, $state->regDef('esi')->latestDef()->inst_id);
+        $this->inst = $inst;
+        $this->anal = $anal;
+    }
+
+    public function testDoMov()
+    {
+        $this->analInst('mov');
+
+        // mov esi, eax
+
+        $this->assertContains($this->inst->id, $this->state->latestDef('eax')->uses);
+        $this->assertEquals($this->inst->id, $this->state->latestDef('esi')->inst_id);
+    }
+
+    public function testDoPush()
+    {
+        $before_esp = $this->state->latestDef('esp');
+
+        $this->analInst('push');
+
+        // push esi
+
+        $this->assertContains($this->inst->id, $this->state->latestDef('esi')->uses);
+        $this->assertContains($this->inst->id, $before_esp->uses);
+        $this->assertEquals($this->inst->id, $this->state->latestDef('esp')->inst_id);
+    }
+
+    public function testDoPop()
+    {
+        $before_esp = $this->state->latestDef('esp');
+
+        $this->analInst('pop');
+
+        // pop esi
+
+        $this->assertContains($this->inst->id, $before_esp->uses);
+        $this->assertEquals($this->inst->id, $this->state->latestDef('esp')->inst_id);
+        $this->assertEquals($this->inst->id, $this->state->latestDef('esi')->inst_id);
     }
 }

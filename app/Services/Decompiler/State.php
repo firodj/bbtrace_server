@@ -39,6 +39,17 @@ class State
      */
     public $def_order;
 
+    /**
+     * @var array<int, RegDef> $stack
+     */
+    public $stack;
+
+    /**
+     * Architecture bit
+     * @var int $arch
+     */
+    public $arch;
+
     public function __construct(RegDefs $reg_defs)
     {
         $this->esp_offset = 0;
@@ -46,7 +57,10 @@ class State
         $this->def_order = 0;
         $this->reg_revs = [];
         $this->reg_orders = [];
+        $this->stack = [];
         $this->reg_defs = $reg_defs;
+
+        $this->arch = 32; // 32-bit
     }
 
     public static function createState()

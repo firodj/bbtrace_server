@@ -26,6 +26,12 @@ class InstructionAnalyzer
             case 'mov':
                 $ok = $this->doMov($state);
                 break;
+            case 'push':
+                $ok = $this->doPush($state);
+                break;
+            case 'pop':
+                $ok = $this->doPop($state);
+                break;
         }
 
         if ($ok === true) return;
@@ -47,11 +53,41 @@ class InstructionAnalyzer
 
     protected function doMov(State $state)
     {
-        $inst = $this->inst;
-
         if ($this->opnds(2)) {
             $defs = $this->regs($this->inst->operands[0]);
             $uses = $this->regs($this->inst->operands[1]);
+
+            $state->uses($uses, $this->inst->id);
+            $state->defs($defs, $this->inst->id);
+
+            return true;
+        }
+    }
+
+    protected function doPush(State $state)
+    {
+        if ($this->opnds(1)) {
+            if ($this->inst->operands[0]->size == 0) throw new Exception();
+
+            $uses = $this->regs($this->inst->operands[0]);
+            $uses[] = 'esp';
+            $defs = ['esp'];
+
+            $state->uses($uses, $this->inst->id);
+            $state->defs($defs, $this->inst->id);
+
+            return true;
+        }
+    }
+
+    protected function doPop(State $state)
+    {
+        if ($this->opnds(1)) {
+            if ($this->inst->operands[0]->size == 0) throw new Exception();
+
+            $uses = ['esp'];
+            $defs = $this->regs($this->inst->operands[0]);
+            $defs[] = 'esp';
 
             $state->uses($uses, $this->inst->id);
             $state->defs($defs, $this->inst->id);
