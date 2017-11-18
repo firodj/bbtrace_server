@@ -6,10 +6,24 @@ use App\Services\Ranger;
 
 class RegDef
 {
+    /**
+     * @var string $reg
+     */
     public $reg;
+
+    /**
+     * @var array<int, RegDefUse> $defs
+     */
     public $defs;
 
+    /**
+     * @var array $reg_shareds
+     */
     public static $reg_shareds = null;
+
+    /**
+     * @var array $reg_overlaps
+     */
     public static $reg_overlaps = null;
 
     const X86_REG_DOMAIN = [
@@ -141,22 +155,27 @@ class RegDef
         ];
     }
 
-    public function addDef(int $inst_id, bool $is_def = true)
+    public function addDef(int $inst_id, State $state)
     {
-        $reg_defuse = $this->latestDef();
+        $reg_defuse = $this->latestDef($state);
+
         if ($reg_defuse->inst_id !== $inst_id) {
             $r = max(array_keys($this->defs)) + 1;
 
-            $reg_defuse = new RegDefUse($this->reg, $r, $inst_id, $is_def);
+            $reg_defuse = new RegDefUse($this->reg, $r, $inst_id);
+
+            $state->setRev($this->reg, $reg_defuse->rev);
+
             $this->defs[$r] = $reg_defuse;
         }
 
         return $reg_defuse;
     }
 
-    public function latestDef()
+    public function latestDef(State $state)
     {
-        $r = max(array_keys($this->defs));
+        // $r = max(array_keys($this->defs));
+        $r = $state->getRev($this->reg);
         return $this->defs[$r];
     }
 }
