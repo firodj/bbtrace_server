@@ -39,6 +39,19 @@ class Ranger
         return $result;
     }
 
+    public static function subtracts(array $rs, Ranger $r0, &$ok)
+    {
+        $ok = false;
+        $_result = [];
+        foreach($rs as $r) {
+            if (self::isOverlap($r, $r0)) $ok = true;
+
+            $_result = array_merge($_result, self::subtract($r, $r0));
+        }
+
+        return self::merge($_result);
+    }
+
     public static function fromDomain(array $domain)
     {
         return new Ranger($domain[1], $domain[1] + $domain[2]);

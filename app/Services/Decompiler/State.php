@@ -25,15 +25,27 @@ class State
     public $reg_revs;
 
     /**
+     * @var array<string, int> $reg_orders
+     */
+    public $reg_orders;
+
+    /**
      * @var RegDefs $reg_defs
      */
     public $reg_defs;
+
+    /**
+     * @var int $def_order
+     */
+    public $def_order;
 
     public function __construct(RegDefs $reg_defs)
     {
         $this->esp_offset = 0;
         $this->st_offset = 0;
+        $this->def_order = 0;
         $this->reg_revs = [];
+        $this->reg_orders = [];
         $this->reg_defs = $reg_defs;
     }
 
@@ -45,15 +57,16 @@ class State
 
     public function defs(array $defs, int $inst_id)
     {
-        return $this->reg_defs->addDefs($defs, $inst_id, $this);
+        $order = ++$this->def_order;
+
+        $results = $this->reg_defs->addDefs($defs, $inst_id, $this);
+        foreach ($results as $reg => $reg_defuse) {
+            $this->setOrder($reg, $order);
+        }
     }
 
     public function getRev(string $reg)
     {
-        if (!array_key_exists($reg, RegDef::X86_REG_DOMAIN)) {
-            throw new Exception("Unknown reg def: $reg");
-        }
-
         if (! isset($this->reg_revs[$reg])) return 0;
 
         return $this->reg_revs[$reg];
@@ -61,13 +74,23 @@ class State
 
     public function setRev(string $reg, int $rev)
     {
-        if (!array_key_exists($reg, RegDef::X86_REG_DOMAIN)) {
-            throw new Exception("Unknown reg def: $reg");
-        }
-
         $this->reg_revs[$reg] = $rev;
 
         return $rev;
+    }
+
+    public function getOrder(string $reg)
+    {
+        if (! isset($this->reg_orders[$reg])) return 0;
+
+        return $this->reg_orders[$reg];
+    }
+
+    public function setOrder(string $reg, int $order)
+    {
+        $this->reg_orders[$reg] = $order;
+
+        return $order;
     }
 
     public function uses(array $uses, int $inst_id)

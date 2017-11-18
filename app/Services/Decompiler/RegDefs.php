@@ -12,15 +12,9 @@ class RegDefs
      */
     public $reg_defs;
 
-    /**
-     * @var int $def_order
-     */
-    public $def_order;
-
     public function __construct()
     {
         $this->reg_defs = [];
-        $this->def_order = 0;
     }
 
     public function regDef(string $reg)
@@ -38,60 +32,59 @@ class RegDefs
 
     public function addDefs(array $regs, int $inst_id, State $state)
     {
-        $order = ++$this->def_order;
+        $results = [];
 
         foreach ($regs as $reg) {
             $reg_defuse = $this->regDef($reg)->addDef($inst_id, $state);
-            if (is_null($reg_defuse->order)) {
-                $reg_defuse->order = $order;
-            }
+            $results[$reg] = $reg_defuse;
         }
+
+        return $results;
     }
+
+    public function regOrders(string $reg, State $state)
+    {
+        $orders = [$reg => $state->getOrder($reg)];
+
+        $outsides = true;
+
+        foreach (RegDef::regOverlap($reg) as $reg_overlap) {
+            $reg_defuse = $this->regDef($reg_overlap)->latestDef($state);
+
+            $orders[$reg_overlap] = $state->getOrder($reg_overlap);
+
+            if ($reg_defuse->rev != 0) $outsides = false;
+        }
+
+        if ($outsides) return false;
+
+        arsort($orders);
+        return $orders;
+    }
+
 
     public function addUses(array $regs, int $inst_id, State $state)
     {
         foreach ($regs as $reg) {
-            $orders = [];
             $uses = [];
 
-            $reg_defuse = $this->regDef($reg)->latestDef($state);
-            $orders[$reg] = $reg_defuse->order;
-
-            $outsides = true;
-            foreach (RegDef::regOverlap($reg) as $reg_overlap) {
-                $reg_defuse = $this->regDef($reg_overlap)->latestDef($state);
-                $orders[$reg_overlap] = $reg_defuse->order;
-                if ($reg_defuse->rev != 0) $outsides = false;
-            }
+            $orders = $this->regOrders($reg, $state);
 
             // if all overlap regs is outsides, pick the same register
-            if ($outsides) {
+            if (! $orders) {
                 $uses[] = $reg;
             } else {
-
-                arsort($orders);
-
                 $domain = RegDef::regDomain($reg);
                 $r1 = Ranger::fromDomain($domain);
                 $result = [$r1];
 
-                // fprintf(STDERR, "use? %s\n", $reg);
-                foreach(array_keys($orders) as $_reg) {
-                    // fprintf(STDERR, "+ check? %s\n", $_reg);
+                foreach(array_keys($orders) as $reg2) {
+                    $domain2 = RegDef::regDomain($reg2);
+                    $r2 = Ranger::fromDomain($domain2);
 
-                    $_domain = RegDef::regDomain($_reg);
-                    $r2 = Ranger::fromDomain($_domain);
+                    $result = Ranger::subtracts($result, $r2, $use_reg);
 
-                    $_result = [];
-                    foreach($result as $_r) {
-                        if (Ranger::isOverlap($_r, $r2)) {
-                            $uses[] = $_reg;
-                            //fprintf(STDERR, "++ use: %s\n", $_reg);
-                        }
-                        //fprintf(STDERR, "   [%d..%d] - [%d..%d]\n", $_r->start, $_r->end, $r2->start, $r2->end);
-                        $_result = array_merge($_result, Ranger::subtract($_r, $r2));
-                    }
-                    $result = Ranger::merge($_result);
+                    if ($use_reg) $uses[] = $reg2;
                 }
             }
 
