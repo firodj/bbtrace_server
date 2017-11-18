@@ -20,21 +20,24 @@ class InstructionAnalyzer
 
     public function analyze(State $state)
     {
+        $ok = false;
+
         switch ($this->inst->mne) {
             case 'mov':
-                list($defs, $uses) = $this->doMov($state);
+                $ok = $this->doMov($state);
                 break;
         }
 
-        throw new Exception('Unknown to analyze: ' . $this->inst->mne);
+        if ($ok === true) return;
 
+        throw new Exception('Unknown to analyze: ' . $this->inst->mne);
     }
 
     public function regs(Operand $opnd)
     {
         $regs = [];
-        if ($opnd->reg) $reg[] = $opnd->reg;
-        if ($opnd->index) $reg[] = $opnd->index;
+        if ($opnd->reg) $regs[] = $opnd->reg;
+        if ($opnd->index) $regs[] = $opnd->index;
         return $regs;
     }
 
@@ -50,10 +53,10 @@ class InstructionAnalyzer
             $defs = $this->regs($this->inst->operands[0]);
             $uses = $this->regs($this->inst->operands[1]);
 
-            $state->defs($defs);
-            $state->uses($uses);
-        }
+            $state->uses($uses, $this->inst->id);
+            $state->defs($defs, $this->inst->id);
 
-        dump($state);
+            return true;
+        }
     }
 }

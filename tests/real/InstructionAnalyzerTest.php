@@ -12,12 +12,14 @@ class InstructionAnalyzerTest extends TestCase
         $inst = Instruction::where('mne', 'mov')->first();
 
         $state = new State();
-        $state->enter($inst->block_id);
 
-        dump($inst->toString());
+        fprintf(STDERR, "#%d: %s\n", $inst->id, $inst->toString());
 
         $anal = new InstructionAnalyzer($inst);
 
         $anal->analyze($state);
+
+        $this->assertContains($inst->id, $state->reg_defs['eax']->latestDef()->uses);
+        $this->assertEquals($inst->id, $state->reg_defs['esi']->latestDef()->inst_id);
     }
 }

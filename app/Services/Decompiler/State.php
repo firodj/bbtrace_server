@@ -40,39 +40,47 @@ class State
     {
         foreach ($uses as $reg) {
             $orders = [];
+            $uses = [];
 
             $reg_defuse = $this->reg_defs[$reg]->latestDef();
             $orders[$reg] = $reg_defuse->order;
 
+            $outsides = true;
             foreach (RegDef::regOverlap($reg) as $reg_overlap) {
                 $reg_defuse = $this->reg_defs[$reg_overlap]->latestDef();
                 $orders[$reg_overlap] = $reg_defuse->order;
+                if ($reg_defuse->rev != 0) $outsides = false;
             }
 
-            arsort($orders);
+            // if all overlap regs is outsides, pick the same register
+            if ($outsides) {
+                $uses[] = $reg;
+            } else {
 
-            $domain = RegDef::regDomain($reg);
-            $r1 = Ranger::fromDomain($domain);
-            $result = [$r1];
-            $uses = [];
+                arsort($orders);
 
-            // fprintf(STDERR, "use? %s\n", $reg);
-            foreach(array_keys($orders) as $_reg) {
-                // fprintf(STDERR, "+ check? %s\n", $_reg);
+                $domain = RegDef::regDomain($reg);
+                $r1 = Ranger::fromDomain($domain);
+                $result = [$r1];
 
-                $_domain = RegDef::regDomain($_reg);
-                $r2 = Ranger::fromDomain($_domain);
+                // fprintf(STDERR, "use? %s\n", $reg);
+                foreach(array_keys($orders) as $_reg) {
+                    // fprintf(STDERR, "+ check? %s\n", $_reg);
 
-                $_result = [];
-                foreach($result as $_r) {
-                    if (Ranger::isOverlap($_r, $r2)) {
-                        $uses[] = $_reg;
-                        //fprintf(STDERR, "++ use: %s\n", $_reg);
+                    $_domain = RegDef::regDomain($_reg);
+                    $r2 = Ranger::fromDomain($_domain);
+
+                    $_result = [];
+                    foreach($result as $_r) {
+                        if (Ranger::isOverlap($_r, $r2)) {
+                            $uses[] = $_reg;
+                            //fprintf(STDERR, "++ use: %s\n", $_reg);
+                        }
+                        //fprintf(STDERR, "   [%d..%d] - [%d..%d]\n", $_r->start, $_r->end, $r2->start, $r2->end);
+                        $_result = array_merge($_result, Ranger::subtract($_r, $r2));
                     }
-                    //fprintf(STDERR, "   [%d..%d] - [%d..%d]\n", $_r->start, $_r->end, $r2->start, $r2->end);
-                    $_result = array_merge($_result, Ranger::subtract($_r, $r2));
+                    $result = Ranger::merge($_result);
                 }
-                $result = Ranger::merge($_result);
             }
 
             foreach ($uses as $_reg) {

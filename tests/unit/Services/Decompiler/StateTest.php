@@ -56,15 +56,15 @@ class StateTest extends TestCase
         $state->defs(['eax'], 2);
         $state->defs(['ah'], 3);
 
-        $state->uses(['ax'], 3);
+        $state->uses(['ax'], 4);
 
         $reg_defuse = $state->reg_defs['ax']->latestDef();
-        $this->assertNotContains(3, $reg_defuse->uses);
+        $this->assertNotContains(4, $reg_defuse->uses);
 
         $reg_defuse = $state->reg_defs['ah']->latestDef();
-        $this->assertContains(3, $reg_defuse->uses);
+        $this->assertContains(4, $reg_defuse->uses);
 
         $reg_defuse = $state->reg_defs['eax']->latestDef();
-        $this->assertContains(3, $reg_defuse->uses);
+        $this->assertContains(4, $reg_defuse->uses);
     }
 }
