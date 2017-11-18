@@ -19,7 +19,20 @@ class State
         $this->esp_offset = 0;
         $this->st_offset = 0;
         $this->order = 0;
-        $this->reg_defs = RegDef::createRegDefs();
+        $this->reg_defs = [];
+    }
+
+    public function regDef(string $reg)
+    {
+        if (!array_key_exists($reg, RegDef::X86_REG_DOMAIN)) {
+            throw new Exception("Unknown reg def: $reg");
+        }
+
+        if (!isset($this->reg_defs[$reg])) {
+            $this->reg_defs[$reg] = new RegDef($reg);
+        }
+
+        return $this->reg_defs[$reg];
     }
 
     public function defs(array $defs, int $inst_id)
@@ -27,12 +40,8 @@ class State
         $this->order += 1;
 
         foreach ($defs as $reg) {
-            $reg_use = $this->reg_defs[$reg]->addDef($inst_id);
+            $reg_use = $this->regDef($reg)->addDef($inst_id);
             $reg_use->order = $this->order;
-
-            // foreach (RegDef::regOverlap($reg) as $reg_overlap) {
-            //     $this->reg_defs[$reg_overlap]->addDef($inst_id, false);
-            // }
         }
     }
 
@@ -42,12 +51,12 @@ class State
             $orders = [];
             $uses = [];
 
-            $reg_defuse = $this->reg_defs[$reg]->latestDef();
+            $reg_defuse = $this->regDef($reg)->latestDef();
             $orders[$reg] = $reg_defuse->order;
 
             $outsides = true;
             foreach (RegDef::regOverlap($reg) as $reg_overlap) {
-                $reg_defuse = $this->reg_defs[$reg_overlap]->latestDef();
+                $reg_defuse = $this->regDef($reg_overlap)->latestDef();
                 $orders[$reg_overlap] = $reg_defuse->order;
                 if ($reg_defuse->rev != 0) $outsides = false;
             }
@@ -84,7 +93,7 @@ class State
             }
 
             foreach ($uses as $_reg) {
-                $reg_defuse = $this->reg_defs[$_reg]->latestDef();
+                $reg_defuse = $this->regDef($_reg)->latestDef();
                 $reg_defuse->addUse($inst_id);
             }
         }

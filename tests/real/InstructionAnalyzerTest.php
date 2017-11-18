@@ -19,7 +19,7 @@ class InstructionAnalyzerTest extends TestCase
 
         $anal->analyze($state);
 
-        $this->assertContains($inst->id, $state->reg_defs['eax']->latestDef()->uses);
-        $this->assertEquals($inst->id, $state->reg_defs['esi']->latestDef()->inst_id);
+        $this->assertContains($inst->id, $state->regDef('eax')->latestDef()->uses);
+        $this->assertEquals($inst->id, $state->regDef('esi')->latestDef()->inst_id);
     }
 }

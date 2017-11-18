@@ -4,14 +4,6 @@ use App\Services\Decompiler\RegDef;
 
 class RegDefTest extends TestCase
 {
-    public function testCreateRegDefs()
-    {
-        $reg_defs = RegDef::createRegDefs();
-
-        $this->assertEquals(52, count($reg_defs));
-        $this->assertEquals(RegDef::class, get_class($reg_defs['eax']));
-    }
-
     public function testRegShared()
     {
         $reg_shared = RegDef::regShared('eax');

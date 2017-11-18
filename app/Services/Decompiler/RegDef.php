@@ -84,17 +84,6 @@ class RegDef
         return self::X86_REG_DOMAIN[$reg];
     }
 
-    public static function createRegDefs()
-    {
-        $reg_defs = [];
-
-        foreach (self::X86_REG_DOMAIN as $_reg => $domain) {
-            $reg_defs[$_reg] = new RegDef($_reg);
-        }
-
-        return $reg_defs;
-    }
-
     public static function regShared(string $reg)
     {
         if (is_null(self::$reg_shareds)) {
