@@ -15,9 +15,10 @@ class State
     public $esp_offset;
 
     /**
-     * @var int $st_offset
+     * FPU top pointer
+     * @var int $fptop_offset
      */
-    public $st_offset;
+    public $fptop_offset;
 
     /**
      * @var array<string, int> $reg_revs
@@ -53,7 +54,7 @@ class State
     public function __construct(RegDefs $reg_defs)
     {
         $this->esp_offset = 0;
-        $this->st_offset = 0;
+        $this->fptop_offset = 0;
         $this->def_order = 0;
         $this->reg_revs = [];
         $this->reg_orders = [];

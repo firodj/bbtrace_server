@@ -10,45 +10,46 @@ use Exception;
 abstract class InstructionAnalyzerBase
 {
     public $inst;
+    public $state;
 
-    public function beforeDo(State $state)
+    public function beforeDo()
     {
     }
 
-    public function dontKnow(State $state)
+    public function dontKnow()
     {
     }
 
-    public function afterDo(State $state)
+    public function afterDo()
     {
     }
 
-    public function __construct(Instruction $inst)
+    public function __construct(Instruction $inst, State $state)
     {
         $this->inst = $inst;
+        $this->state = $state;
     }
 
-    public function analyze(State $state)
+    public function analyze()
     {
         $ok = false;
 
-        $this->beforeDo($state);
+        $this->beforeDo();
 
         $method_name = 'do' . ucfirst($this->inst->mne);
 
         if (method_exists($this, $method_name)) {
-            $ok = $this->$method_name($state);
+            $ok = $this->$method_name();
         } else {
-            $ok = $this->dontKnow($state);
+            $ok = $this->dontKnow();
         }
 
         if ($ok === false) {
             throw new Exception('Unknown to analyze: ' . $this->inst->mne);
         }
 
-        $this->afterDo($state);
-
-        return $ok; // TODO: getResult()
+        $this->afterDo();
+        return $ok;
     }
 
     public function regs(Operand $opnd)

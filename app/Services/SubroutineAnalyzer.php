@@ -118,16 +118,21 @@ class SubroutineAnalyzer
 
     public function blockDefUse(Block $block, State $state)
     {
-        // echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+        echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
 
         // Form instruction
         foreach($block->instructions as $inst) {
-            // echo "\t";
-            // echo Color::set(sprintf("%d: ", $inst->addr), 'yellow');
-            // echo Color::set(sprintf("%s\n", $inst->toString()), 'blue');
+            echo "\t";
+            echo Color::set(sprintf("%d: ", $inst->addr), 'yellow');
+            echo Color::set(sprintf("%s", $inst->toString()), 'blue');
 
-            $anal = new DefUseAnalyzer($inst);
-            $anal->analyze($state);
+            $anal = new DefUseAnalyzer($inst, $state);
+            $anal->analyze();
+
+            echo Color::set(sprintf("\t%s", implode(',', $anal->uses)), 'green');
+            echo Color::set(sprintf("\t%s", implode(',', $anal->defs)), 'red');
+
+            echo "\n";
         }
     }
 

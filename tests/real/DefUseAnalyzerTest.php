@@ -18,9 +18,9 @@ class DefUseAnalyzerTest extends TestCase
 
         fprintf(STDERR, "#%d: %s\n", $inst->id, $inst->toString());
 
-        $anal = new DefUseAnalyzer($inst);
+        $anal = new DefUseAnalyzer($inst, $this->state);
 
-        $anal->analyze($this->state);
+        $anal->analyze();
 
         $this->inst = $inst;
         $this->anal = $anal;

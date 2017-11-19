@@ -83,16 +83,30 @@ class RegDef
         'fs'  => [1014, 0, 16],
         'gs'  => [1015, 0, 16],
 
-        'st0'  => [1016, 0*80, 80],
-        'st1'  => [1016, 1*80, 80],
-        'st2'  => [1016, 2*80, 80],
-        'st3'  => [1016, 3*80, 80],
-        'st4'  => [1016, 4*80, 80],
-        'st5'  => [1016, 5*80, 80],
-        'st6'  => [1016, 6*80, 80],
-        'st7'  => [1016, 7*80, 80],
+        'fp0'  => [1016, 0*80, 80],
+        'fp1'  => [1016, 1*80, 80],
+        'fp2'  => [1016, 2*80, 80],
+        'fp3'  => [1016, 3*80, 80],
+        'fp4'  => [1016, 4*80, 80],
+        'fp5'  => [1016, 5*80, 80],
+        'fp6'  => [1016, 6*80, 80],
+        'fp7'  => [1016, 7*80, 80],
 
-        'fpsw' => [1017, 0, 16],
+        'fpsw' => [1017,  0, 16], // x87 fpu status word
+        'fpie' => [1017,  0,  1], // invalid operation exception
+        'fpde' => [1017,  1,  1], // denormalized operand exception
+        'fpze' => [1017,  2,  1], // zero divide exception
+        'fpoe' => [1017,  3,  1], // overflow exception
+        'fpue' => [1017,  4,  1], // underflow exception
+        'fppe' => [1017,  5,  1], // precision exception
+        'fpsf' => [1017,  6,  1], // stack fault
+        'fpes' => [1017,  7,  1], // error summary status
+        'fpc0' => [1017,  8,  1], // condition code 0
+        'fpc1' => [1017,  9,  1], // condition code 1
+        'fpc2' => [1017, 10,  1], // condition code 2
+        'fptop' => [1017, 11,  3], // top of stack pointer
+        'fpc3' => [1017, 14,  1], // condition code 3
+        'fpb' => [1017, 15,  1], // fpu busy
     ];
 
     public static function regDomain(string $reg)
