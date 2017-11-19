@@ -13,6 +13,7 @@ class StateTest extends TestCase
 
         $this->assertEquals(1, $state->latestDef('eax')->rev);
         $this->assertEquals(1, $state->latestDef('ecx')->rev);
+        $this->assertEquals(1, $state->latestDef('ebx')->rev);
         $this->assertEquals(0, $state->latestDef('edx')->rev);
     }
 

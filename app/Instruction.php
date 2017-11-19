@@ -10,6 +10,13 @@ class Instruction extends Model
 
     protected $guarded = [];
 
+    /**
+     * The attributes that should be hidden for arrays.
+     *
+     * @var array<string> $hidden
+     */
+    protected $hidden = ['opcodes'];
+
     public function block()
     {
         return $this->belongsTo(Block::class);
@@ -35,10 +42,7 @@ class Instruction extends Model
 
     public function toExpressionString()
     {
-        $x = $this->operands->map(function ($op) { return $op->expression->toString(); });
-
-        $cf = Expression::makeRegExpression('cf')->toString();
-        $st0 = Expression::makeRegExpression('st0')->toString();
+        $x = $this->operands->map(function ($op) { return $op->toString(); });
 
         switch ($this->mne) {
         case 'mov':

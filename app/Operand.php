@@ -15,6 +15,11 @@ class Operand extends Model
     const IMM_TYPE = 'imm';
     const MEM_TYPE = 'mem';
 
+    protected $casts = [
+        'is_write' => 'boolean',
+        'is_read' => 'boolean'
+    ];
+
     public function instruction()
     {
         return $this->belongsTo(Instruction::class);
@@ -78,18 +83,22 @@ class Operand extends Model
                 }
             }
 
+            $sg = is_null($this->seg) ? '' : $this->seg . ':';
+
             switch ($this->size) {
             case 8:
-                return sprintf('byte ptr [%s]', implode(' ', $x));
+                $sz = 'byte ptr'; break;
             case 16:
-                return sprintf('word ptr [%s]', implode(' ', $x));
+                $sz = 'word ptr'; break;
             case 32:
-                return sprintf('dword ptr [%s]', implode(' ', $x));
+                $sz = 'dword ptr'; break;
             case 64:
-                return sprintf('qword ptr [%s]', implode(' ', $x));
+                $sz = 'qword ptr'; break;
             default:
                 throw new Exception('Unknown memory operand size');
             }
+
+            return sprintf('%s %s[%s]', $sz, $sg, implode(' ', $x));
         }
     }
 

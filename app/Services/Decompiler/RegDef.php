@@ -91,6 +91,8 @@ class RegDef
         'st5'  => [1016, 5*80, 80],
         'st6'  => [1016, 6*80, 80],
         'st7'  => [1016, 7*80, 80],
+
+        'fpsw' => [1017, 0, 16],
     ];
 
     public static function regDomain(string $reg)

@@ -202,6 +202,13 @@ class BbAnalyzer
         }
     }
 
+    public function disasmInstruction(Instruction $inst)
+    {
+        $insn = cs_disasm($this->capstone, $inst->opcodes, $inst->addr);
+        if (count($insn) != 1) throw new Exception();
+        return $insn[0];
+    }
+
     public function disasmBlock(Block $block)
     {
         $data = $this->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
@@ -216,6 +223,7 @@ class BbAnalyzer
                 $inst->mne = $ins->mnemonic;
                 $inst->addr = $ins->address;
                 $inst->end = $ins->address + count($ins->bytes);
+                $inst->opcodes = pack('C*', ...$ins->bytes);
                 $inst->save();
 
                 $detail = $ins->detail->x86;
@@ -248,9 +256,10 @@ class BbAnalyzer
                         throw new Exception('Unknown operand type ' . $opr->type);
                     }
 
-                    $inst->operands()->save($opnd);
+                    $opnd->is_write = in_array('write', $opr->access);
+                    $opnd->is_read = in_array('read', $opr->access);
 
-                    Expression::createExpressionFromOperand($opnd);
+                    $inst->operands()->save($opnd);
                 }
             }
         }

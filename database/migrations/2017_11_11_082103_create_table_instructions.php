@@ -20,6 +20,7 @@ class CreateTableInstructions extends Migration
             $table->integer('addr')->index();
             $table->integer('end')->index();
             $table->string('mne');
+            $table->binary('opcodes');
         });
 
         Schema::create('operands', function(Blueprint $table)
@@ -35,6 +36,9 @@ class CreateTableInstructions extends Migration
             $table->string('index')->nullable();
             $table->tinyInteger('scale')->nullable();
             $table->string('seg')->nullable();
+
+            $table->boolean('is_write');
+            $table->boolean('is_read');
         });
     }
 

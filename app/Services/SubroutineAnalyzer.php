@@ -9,17 +9,131 @@ use App\Symbol;
 use App\Decompiler;
 use App\Expression;
 use PhpAnsiColor\Color;
+use App\Services\Decompiler\State;
 
 use Exception;
 
 class SubroutineAnalyzer
 {
-    public $subroutine_id;
+    /**
+     * Subroutine
+     * @var Subroutine $subroutine
+     */
+    public $subroutine;
+
     public $reg_revisions = [];
     public $mnemonics = [];
 
+    public function __construct($subroutine_id)
+    {
+        $this->subroutine = Subroutine::with('blocks')->with('module')->findOrFail($subroutine_id);
+    }
+
+    public function binary(bool $whole)
+    {
+        printf("Binary subs #%d: 0x%x - 0x%x (%d) %s\n", $this->subroutine->id,
+            $this->subroutine->addr,
+            $this->subroutine->end,
+            $this->subroutine->getSize(),
+            $this->subroutine->name);
+
+        if ($whole) {
+            $result = app(BbAnalyzer::class)->pe_parser->getBinaryByRva(
+                $this->subroutine->getRva(),
+                $this->subroutine->getSize()
+            );
+            return $result;
+        }
+
+        $result = '';
+
+        $prev = null;
+        foreach ($this->subroutine->blocks()->orderBy('addr')->get() as $block) {
+            $data = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
+            if (!is_null($prev)) {
+                 // NOP missing block
+                if ($prev->end != $block->addr) {
+                    printf("Missing: 0x%x - 0x%x\n", $prev->end, $block->addr);
+                    $size = $block->addr - $prev->end;
+                    $result .= str_repeat("\x90", $size);
+                }
+            }
+            printf("Block #%d: 0x%x - 0x%x\n", $block->id, $block->addr, $block->end);
+            $result .= $data;
+            $prev = $block;
+        };
+
+        return $result;
+    }
+
+    public function eachBlock()
+    {
+        $blocks = $this->subroutine->blocks->keyBy('addr');
+
+        $traces = [
+            (object)[
+                'block_addr' => $this->subroutine->addr,
+                'state' => State::createState()
+            ]
+        ];
+        $visits = [];
+
+        $returns = [];
+
+        while ($trace_item = array_pop($traces)) {
+            $state = clone $trace_item->state;
+
+            if (in_array($trace_item->block_addr, $visits)) continue;
+            $visits[] = $trace_item->block_addr;
+
+            if ($block = $blocks[$trace_item->block_addr] ?? null) {
+                if ($block->instructions()->count() == 0) {
+                    app(BbAnalyzer::class)->disasmBlock($block);
+                }
+
+                yield $block => $state;
+
+                if ($block->jump_mnemonic == 'call') {
+                    $traces[] = (object)[
+                        'block_addr' => $block->end,
+                        'state' => clone $state
+                    ];
+                }
+
+                if ($block->jump_mnemonic != 'ret') {
+                    foreach ($block->nextFlows as $flow) {
+                        $traces[] = (object)[
+                            'block_addr' => $flow->block->addr,
+                            'state' => clone $state
+                        ];
+                    };
+                }
+
+                if ($block->jump_mnemonic == 'ret') {
+                    $returns[] = clone $state;
+                }
+            }
+        }
+    }
+
+    public function blockDefUse(Block $block, State $state)
+    {
+        // echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+
+        // Form instruction
+        foreach($block->instructions as $inst) {
+            // echo "\t";
+            // echo Color::set(sprintf("%d: ", $inst->addr), 'yellow');
+            // echo Color::set(sprintf("%s\n", $inst->toString()), 'blue');
+
+            $anal = new DefUseAnalyzer($inst);
+            $anal->analyze($state);
+        }
+    }
+
     /**
      * Generate operand's expression for all instructions
+     * @deprecated
      */
     public function exgen(int $subroutine_id)
     {
@@ -40,6 +154,10 @@ class SubroutineAnalyzer
         });
     }
 
+
+    /**
+     * @deprecated
+     */
     public function analyze(int $subroutine_id)
     {
         $subroutine = Subroutine::findOrFail($subroutine_id);
@@ -274,10 +392,9 @@ class SubroutineAnalyzer
         return $state;
     }
 
-    public function graph(int $subroutine_id)
+    public function graph()
     {
-        $subroutine = Subroutine::with('blocks')->with('module')->find($subroutine_id);
-        if (! $subroutine) return null;
+        $subroutine = $this->subroutine;
 
         $result = $subroutine->toArray();
         $links = [];
@@ -338,7 +455,7 @@ class SubroutineAnalyzer
                 }
                 $codes = $block->instructions()->get()->map(function ($inst)
                 {
-                    return ['code' => $inst->toExpressionString()];
+                    return ['code' => $inst->toString()];
                 });
                 $block->codes = $codes;
             }
@@ -403,39 +520,5 @@ class SubroutineAnalyzer
         return $result;
     }
 
-    public function binary(int $subroutine_id, bool $whole)
-    {
-        $subroutine = Subroutine::findOrFail($subroutine_id);
-
-        printf("Binary subs #%d: 0x%x - 0x%x (%d) %s\n", $subroutine->id, 
-            $subroutine->addr,
-            $subroutine->end,
-            $subroutine->getSize(),
-            $subroutine->name);
-
-        if ($whole) {
-            $result = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($subroutine->getRva(), $subroutine->getSize());
-            return $result;
-        }
-
-        $result = '';
-
-        $prev = null;
-        foreach ($subroutine->blocks()->orderBy('addr')->get() as $block) {
-            $data = app(BbAnalyzer::class)->pe_parser->getBinaryByRva($block->getRva(), $block->getSize());
-            if (!is_null($prev)) {
-                if ($prev->end != $block->addr) {
-                    printf("Missing: 0x%x - 0x%x\n", $prev->end, $block->addr);
-                    $size = $block->addr - $prev->end;
-                    $result .= str_repeat("\x90", $size);
-                }
-            }
-            printf("Block #%d: 0x%x - 0x%x\n", $block->id, $block->addr, $block->end);
-            $result .= $data;
-            $prev = $block;
-        };
-
-        return $result;
-    }
 
 }

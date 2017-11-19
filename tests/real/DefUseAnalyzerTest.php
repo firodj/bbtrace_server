@@ -1,11 +1,11 @@
 <?php
 
-use App\Services\InstructionAnalyzer;
+use App\Services\DefUseAnalyzer;
 use App\Services\Decompiler\State;
 use App\Block;
 use App\Instruction;
 
-class InstructionAnalyzerTest extends TestCase
+class DefUseAnalyzerTest extends TestCase
 {
     public function setUp()
     {
@@ -18,7 +18,7 @@ class InstructionAnalyzerTest extends TestCase
 
         fprintf(STDERR, "#%d: %s\n", $inst->id, $inst->toString());
 
-        $anal = new InstructionAnalyzer($inst);
+        $anal = new DefUseAnalyzer($inst);
 
         $anal->analyze($this->state);
 

@@ -22,9 +22,9 @@ class SubroutineController extends Controller
 
     public function show(Request $request, $id)
     {
-        $analyzer = new SubroutineAnalyzer();
+        $analyzer = new SubroutineAnalyzer($id);
 
-        $result = $analyzer->graph($id);
+        $result = $analyzer->graph();
 
         if (! $result) {
             $symbol = Symbol::with('module')->find($id);
