@@ -5,6 +5,20 @@ namespace App;
 use Illuminate\Database\Eloquent\Model;
 use Exception;
 
+/**
+    Schema::create('expressions', function (Blueprint $table)
+    {
+        $table->increments('id');
+        $table->integer('operand_id')->index();
+        $table->integer('parent_id')->nullable()->index();
+        $table->tinyInteger('pos')->default(0);
+        $table->string('type');
+        $table->integer('size')->default(0);
+        $table->bigInteger('const')->nullable();
+        $table->integer('domain')->nullable();
+    });
+ */
+
 class Expression extends Model
 {
     public $timestamps = false;
@@ -20,74 +34,6 @@ class Expression extends Model
     const SUB_TYPE = 'sub';
     const MUL_TYPE = 'mul';
     const AND_TYPE = 'and';
-
-    const X86_REG_DOMAIN = [
-        'eip' => [1000, 0, 32],
-        'ip'  => [1000, 0, 16],
-
-        'eflags' => [1001, 0, 32],
-        'flags'  => [1001, 0, 16],
-
-        'cf' => [1001,  0,  1], // Carry flag
-        'pf' => [1001,  2,  1], // Parity flag
-        'af' => [1001,  4,  1], // Adjust flag
-        'zf' => [1001,  6,  1], // Zero flag
-        'sf' => [1001,  7,  1], // Sign flag
-        'if' => [1001,  9,  1], // Interrupt enable flag (X)
-        'df' => [1001, 10,  1], // Direction flag (C)
-        'of' => [1001, 11,  1], // Overflow flag
-
-        'eax' => [1002, 0, 32],
-        'ax'  => [1002, 0, 16],
-        'al'  => [1002, 0, 8],
-        'ah'  => [1002, 8, 8],
-
-        'ecx' => [1003, 0, 32],
-        'cx'  => [1003, 0, 16],
-        'cl'  => [1003, 0, 8],
-        'ch'  => [1003, 8, 8],
-
-        'edx' => [1004, 0, 32],
-        'dx'  => [1004, 0, 16],
-        'dl'  => [1004, 0, 8],
-        'dh'  => [1004, 8, 8],
-
-        'ebx' => [1005, 0, 32],
-        'bx'  => [1005, 0, 16],
-        'bl'  => [1005, 0, 8],
-        'bh'  => [1005, 8, 8],
-
-        'esp' => [1006, 0, 32],
-        'sp'  => [1006, 0, 16],
-        'spl'  => [1006, 0, 8],
-
-        'ebp' => [1007, 0, 32],
-        'bp'  => [1007, 0, 16],
-        'bpl'  => [1007, 0, 8],
-
-        'esi' => [1008, 0, 32],
-        'si'  => [1008, 0, 16],
-
-        'edi' => [1009, 0, 32],
-        'di'  => [1009, 0, 16],
-
-        'es'  => [1010, 0, 16],
-        'cs'  => [1011, 0, 16],
-        'ss'  => [1012, 0, 16],
-        'ds'  => [1013, 0, 16],
-        'fs'  => [1014, 0, 16],
-        'gs'  => [1015, 0, 16],
-
-        'st0'  => [1016, 0*80, 80],
-        'st1'  => [1016, 1*80, 80],
-        'st2'  => [1016, 2*80, 80],
-        'st3'  => [1016, 3*80, 80],
-        'st4'  => [1016, 4*80, 80],
-        'st5'  => [1016, 5*80, 80],
-        'st6'  => [1016, 6*80, 80],
-        'st7'  => [1016, 7*80, 80],
-    ];
-
 
     public function parent()
     {
