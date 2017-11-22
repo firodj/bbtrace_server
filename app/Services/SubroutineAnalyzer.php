@@ -6,6 +6,7 @@ use App\Subroutine;
 use App\Code;
 use App\Block;
 use App\Symbol;
+use App\DefUse;
 use App\Decompiler;
 use App\Expression;
 use PhpAnsiColor\Color;
@@ -21,12 +22,22 @@ class SubroutineAnalyzer
      */
     public $subroutine;
 
+    /**
+     * Return states
+     * @var array<int, State> $returns
+     */
+    public $returns;
+
+    public $verbose;
+
     public $reg_revisions = [];
     public $mnemonics = [];
 
     public function __construct($subroutine_id)
     {
         $this->subroutine = Subroutine::with('blocks')->with('module')->findOrFail($subroutine_id);
+        $this->returns = [];
+        $this->verbose = true;
     }
 
     public function binary(bool $whole)
@@ -83,7 +94,12 @@ class SubroutineAnalyzer
         while ($trace_item = array_pop($traces)) {
             $state = clone $trace_item->state;
 
-            if (in_array($trace_item->block_addr, $visits)) continue;
+            if (in_array($trace_item->block_addr, $visits)) {
+                // TODO: loop detected, recrods this state
+                echo Color::set(sprintf("loop addr #%d\n", $trace_item->block_addr), 'yellow');
+                continue;
+            }
+
             $visits[] = $trace_item->block_addr;
 
             if ($block = $blocks[$trace_item->block_addr] ?? null) {
@@ -110,29 +126,70 @@ class SubroutineAnalyzer
                 }
 
                 if ($block->jump_mnemonic == 'ret') {
-                    $returns[] = clone $state;
+                    $returns[$block->addr] = clone $state;
+                }
+            } else {
+                $block = Block::where('addr', $trace_item->block_add)->first();
+                if ($block && $block->subroutine_id != $this->subroutine->id) {
+                    $returns[$block->addr] = clone $state;
                 }
             }
         }
+
+        $this->returns = $returns;
     }
 
     public function blockDefUse(Block $block, State $state)
     {
-        echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+        if ($this->verbose) {
+            echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+        }
 
         // Form instruction
         foreach($block->instructions as $inst) {
-            echo "\t";
-            echo Color::set(sprintf("%d: ", $inst->addr), 'yellow');
-            echo Color::set(sprintf("%s", $inst->toString()), 'blue');
+            if ($this->verbose) {
+                echo "\t";
+                echo Color::set(sprintf("%d #%d: ", $inst->addr, $inst->id), 'yellow');
+                echo Color::set(sprintf("%s", $inst->toString()), 'blue');
+            }
 
             $anal = new DefUseAnalyzer($inst, $state);
             $anal->analyze();
 
-            echo Color::set(sprintf("\t%s", implode(',', $anal->uses)), 'green');
-            echo Color::set(sprintf("\t%s", implode(',', $anal->defs)), 'red');
+            if ($this->verbose) {
+                echo Color::set(sprintf("\t%s", implode(',', $anal->uses)), 'green');
+                echo Color::set(sprintf("\t%s", implode(',', $anal->defs)), 'red');
 
-            echo "\n";
+                echo "\n";
+            }
+        }
+    }
+
+    public function analyzeDefUse()
+    {
+        foreach ($this->eachBlock() as $block => $state) {
+            $this->blockDefUse($block, $state);
+        }
+
+        $reg_defs = reset($this->returns)->reg_defs;
+
+        foreach ($reg_defs->reg_defs as $reg_def) {
+            foreach ($reg_def->defs as $reg_defuse) {
+                foreach ($reg_defuse->uses as $inst_id) {
+                    $attrs = [
+                        'instruction_id' => $inst_id,
+                        'reg' => $reg_defuse->reg,
+                        'defined_instruction_id' => $reg_defuse->inst_id
+                    ];
+
+                    $defuse = DefUse::where($attrs)->first();
+                    if (! $defuse) {
+                        $defuse = new DefUse;
+                        $defuse->fill($attrs);
+                        $defuse->save();
+                    }
+                }
+            }
         }
     }
 

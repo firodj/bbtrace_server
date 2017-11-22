@@ -8,9 +8,7 @@ class SubroutineAnalyzerTest extends TestCase
 {
     public function testAnalyze()
     {
-        $analyzer = new SubroutineAnalyzer(497);
-        foreach ($analyzer->eachBlock() as $block => $state) {
-            $analyzer->blockDefUse($block, $state);
-        }
+        $analyzer = new SubroutineAnalyzer(495); // 165
+        $analyzer->analyzeDefUse();
     }
 }

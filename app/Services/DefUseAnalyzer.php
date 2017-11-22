@@ -69,6 +69,8 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
 
     public function afterDo()
     {
+        $this->uses = array_unique($this->uses);
+        $this->defs = array_unique($this->defs);
         $this->state->uses($this->uses, $this->inst->id);
         $this->state->defs($this->defs, $this->inst->id);
     }
@@ -139,6 +141,5 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
         $this->uses[] = sprintf("fp%d", $this->state->fptop_offset);
 
         $this->state->fptop_offset = $this->state->fptop_offset < 7 ? $this->state->fptop_offset + 1 : 0;
-
     }
 }

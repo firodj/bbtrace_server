@@ -62,7 +62,6 @@ class RegDefs
         return $orders;
     }
 
-
     public function addUses(array $regs, int $inst_id, State $state)
     {
         foreach ($regs as $reg) {

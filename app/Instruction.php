@@ -27,6 +27,11 @@ class Instruction extends Model
         return $this->hasMany(Operand::class)->orderBy('pos', 'asc');
     }
 
+    public function defUses()
+    {
+        return $this->hasMany(DefUse::class);
+    }
+
     public function toString()
     {
         $x = $this->operands->map(function ($op) { return $op->toString(); });
