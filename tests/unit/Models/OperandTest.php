@@ -108,4 +108,10 @@ class OperandTest extends TestCase
     {
         $this->assertEquals(-1, Operand::makeSigned(4294967295, 32));
     }
+
+    public function testMakeUnsigned()
+    {
+        $this->assertEquals(255, Operand::makeUnsigned(-1, 8));
+        $this->assertEquals(65520, Operand::makeUnsigned(-16, 16));
+    }
 }

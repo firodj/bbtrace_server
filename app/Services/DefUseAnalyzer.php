@@ -15,6 +15,7 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
 {
     public $uses = [];
     public $defs = [];
+    public $esp_offset = null;
 
     public function beforeDo()
     {
@@ -65,12 +66,21 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
                 $this->defs = array_merge($this->defs, $this->regs($opnd));
             }
         }
+
+        $this->esp_offset = $this->state->esp_offset;
     }
 
     public function afterDo()
     {
         $this->uses = array_unique($this->uses);
         $this->defs = array_unique($this->defs);
+
+        if (in_array('esp', $this->defs)) {
+            if ($this->esp_offset === $this->state->esp_offset) {
+                throw new Exception('ESP cannot be tracked: ' . $this->inst->mne);
+            }
+        }
+
         $this->state->uses($this->uses, $this->inst->id);
         $this->state->defs($this->defs, $this->inst->id);
     }
@@ -115,6 +125,25 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
         // get from stack
 
         $this->state->esp_offset += $this->inst->operands[0]->size / 8;
+    }
+
+    public function doRet()
+    {
+        $this->state->esp_offset += 32 / 8;
+
+        if ($this->opnds(1)) {
+            $this->state->esp_offset += $this->inst->operands[0]->asImm();
+        }
+    }
+
+    public function doAnd()
+    {
+        if ($this->inst->operands[0]->asReg() == 'esp') {
+            $align = $this->inst->operands[1]->asImm(true);
+            if (!is_null($align)) {
+                $this->state->esp_offset = $this->state->esp_offset & $align;
+            }
+        }
     }
 
     public function doFld()

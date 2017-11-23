@@ -116,7 +116,7 @@ class Operand extends Model
         );
     }
 
-    public function isEqual($opnd): bool {
+    public function isEqual(Operand $opnd): bool {
         if ($this->type != $opnd->type) return false;
         if ($this->size != $opnd->size) return false;
         switch ($this->type) {
@@ -167,5 +167,36 @@ class Operand extends Model
         }
 
         return $imm;
+    }
+
+    public static function makeUnsigned($imm, $size)
+    {
+        if ($size == 0 || $imm == 0) return $imm;
+
+        if ($imm > 0) {
+            return $imm;
+        }
+
+        $sign = $imm >> ($size - 1);
+        if (($sign & 1) == 1) {
+            return (1 << $size) + $imm;
+        }
+
+        return $imm;
+    }
+
+    public function asImm($signed = false) {
+        if ($this->type == self::IMM_TYPE) {
+            if ($signed === true) {
+                return self::makeSigned($this->imm, $this->size);
+            } else if ($signed === false) {
+                return self::makeUnsigned($this->imm, $this->size);
+            }
+            return $this->imm;
+        }
+    }
+
+    public function asReg() {
+        if ($this->type == self::REG_TYPE) return $this->reg;
     }
 }

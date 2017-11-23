@@ -96,7 +96,13 @@ class SubroutineAnalyzer
 
             if (in_array($trace_item->block_addr, $visits)) {
                 // TODO: loop detected, recrods this state
-                echo Color::set(sprintf("loop addr #%d\n", $trace_item->block_addr), 'yellow');
+                if ($this->verbose) {
+                    echo Color::set(sprintf("Loop addr: %d\n", $trace_item->block_addr), 'yellow');
+                }
+
+                if ($block = $blocks[$trace_item->block_addr] ?? null) {
+                    yield $block => $state;
+                }
                 continue;
             }
 
@@ -171,7 +177,12 @@ class SubroutineAnalyzer
             $this->blockDefUse($block, $state);
         }
 
-        $reg_defs = reset($this->returns)->reg_defs;
+        $state = reset($this->returns);
+        $reg_defs = $state->reg_defs;
+
+        if ($this->verbose) {
+            echo Color::set(sprintf("ESP offset: %d\n", $state->esp_offset), 'blue');
+        }
 
         foreach ($reg_defs->reg_defs as $reg_def) {
             foreach ($reg_def->defs as $reg_defuse) {
