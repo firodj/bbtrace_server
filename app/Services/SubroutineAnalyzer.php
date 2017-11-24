@@ -201,6 +201,22 @@ class SubroutineAnalyzer
                     }
                 }
             }
+
+            $reg_defuse = $reg_def->latestDef($state);
+            if (empty($reg_defuse->uses) && $reg_defuse->rev != 0) {
+                $attrs = [
+                    'instruction_id' => null,
+                    'reg' => $reg_defuse->reg,
+                    'defined_instruction_id' => $reg_defuse->inst_id
+                ];
+
+                $defuse = DefUse::where($attrs)->first();
+                if (! $defuse) {
+                    $defuse = new DefUse;
+                    $defuse->fill($attrs);
+                    $defuse->save();
+                }
+            }
         }
     }
 

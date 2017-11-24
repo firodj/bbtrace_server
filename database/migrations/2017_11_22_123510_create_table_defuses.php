@@ -15,8 +15,8 @@ class CreateTableDefuses extends Migration
     {
         Schema::create('def_uses', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('instruction_id')->index();
             $table->string('reg');
+            $table->integer('instruction_id')->index()->nullable()->index();
             $table->integer('defined_instruction_id')->nullable()->index();
         });
     }

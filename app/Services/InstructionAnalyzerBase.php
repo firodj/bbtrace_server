@@ -18,6 +18,7 @@ abstract class InstructionAnalyzerBase
 
     public function dontKnow()
     {
+        return false;
     }
 
     public function afterDo()

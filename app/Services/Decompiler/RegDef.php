@@ -188,7 +188,7 @@ class RegDef
         return $reg_defuse;
     }
 
-    public function latestDef(State $state)
+    public function latestDef(State $state): RegDefUse
     {
         // $r = max(array_keys($this->defs));
         $r = $state->getRev($this->reg);

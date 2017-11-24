@@ -17,6 +17,11 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
     public $defs = [];
     public $esp_offset = null;
 
+    public function dontKnow()
+    {
+        return null;
+    }
+
     public function beforeDo()
     {
         $ins = app(BbAnalyzer::class)->disasmInstruction($this->inst);
@@ -75,75 +80,8 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
         $this->uses = array_unique($this->uses);
         $this->defs = array_unique($this->defs);
 
-        if (in_array('esp', $this->defs)) {
-            if ($this->esp_offset === $this->state->esp_offset) {
-                throw new Exception('ESP cannot be tracked: ' . $this->inst->mne);
-            }
-        }
-
         $this->state->uses($this->uses, $this->inst->id);
         $this->state->defs($this->defs, $this->inst->id);
-    }
-
-    public function doXor()
-    {
-        // xor eax, eax -> def only eax
-        if ($this->inst->operands[0]->isEqual($this->inst->operands[1])) {
-            if ($this->inst->operands[0]->type == OPERAND::REG_TYPE) {
-                $this->uses = array_filter($this->uses, function ($reg) {
-                    return $reg != $this->inst->operands[0]->reg;
-                });
-            }
-        }
-    }
-
-    public function doOr()
-    {
-        // or eax, -1 -> def only eax
-        if ($this->inst->operands[1]->isImm(-1)) {
-            if ($this->inst->operands[0]->type == OPERAND::REG_TYPE) {
-                $this->uses = array_filter($this->uses, function ($reg) {
-                    return $reg != $this->inst->operands[0]->reg;
-                });
-            }
-        }
-    }
-
-    public function doPush()
-    {
-        if ($this->inst->operands[0]->size == 0) throw new Exception();
-
-        $this->state->esp_offset -= $this->inst->operands[0]->size / 8;
-
-        // put to stack
-    }
-
-    public function doPop()
-    {
-        if ($this->inst->operands[0]->size == 0) throw new Exception();
-
-        // get from stack
-
-        $this->state->esp_offset += $this->inst->operands[0]->size / 8;
-    }
-
-    public function doRet()
-    {
-        $this->state->esp_offset += 32 / 8;
-
-        if ($this->opnds(1)) {
-            $this->state->esp_offset += $this->inst->operands[0]->asImm();
-        }
-    }
-
-    public function doAnd()
-    {
-        if ($this->inst->operands[0]->asReg() == 'esp') {
-            $align = $this->inst->operands[1]->asImm(true);
-            if (!is_null($align)) {
-                $this->state->esp_offset = $this->state->esp_offset & $align;
-            }
-        }
     }
 
     public function doFld()
