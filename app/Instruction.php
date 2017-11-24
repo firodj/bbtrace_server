@@ -27,9 +27,14 @@ class Instruction extends Model
         return $this->hasMany(Operand::class)->orderBy('pos', 'asc');
     }
 
-    public function defUses()
+    public function uses()
     {
         return $this->hasMany(DefUse::class);
+    }
+
+    public function defines()
+    {
+        return $this->hasMany(DefUse::class, 'defined_instruction_id');
     }
 
     public function toString()

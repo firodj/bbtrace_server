@@ -11,6 +11,7 @@ use App\Decompiler;
 use App\Expression;
 use PhpAnsiColor\Color;
 use App\Services\Decompiler\State;
+use App\Services\Decompiler\RegVal;
 
 use Exception;
 
@@ -180,10 +181,6 @@ class SubroutineAnalyzer
         $state = reset($this->returns);
         $reg_defs = $state->reg_defs;
 
-        if ($this->verbose) {
-            echo Color::set(sprintf("ESP offset: %d\n", $state->esp_offset), 'blue');
-        }
-
         foreach ($reg_defs->reg_defs as $reg_def) {
             foreach ($reg_def->defs as $reg_defuse) {
                 foreach ($reg_defuse->uses as $inst_id) {
@@ -216,6 +213,54 @@ class SubroutineAnalyzer
                     $defuse->fill($attrs);
                     $defuse->save();
                 }
+            }
+        }
+    }
+
+    public function analyzeValue()
+    {
+        foreach ($this->eachBlock() as $block => $state) {
+            $this->blockValue($block, $state);
+        }
+
+        $state = reset($this->returns);
+        $reg_defs = $state->reg_defs;
+
+        if ($this->verbose) {
+            echo Color::set(sprintf("ESP offset: %d\n", $state->reg_vals['esp']->disp), 'blue');
+        }
+    }
+
+    public function blockValue(Block $block, State $state)
+    {
+        if ($this->verbose) {
+            echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+        }
+
+        // Form instruction
+        foreach($block->instructions as $inst) {
+            if ($this->verbose) {
+                echo "\t";
+                echo Color::set(sprintf("%d #%d: ", $inst->addr, $inst->id), 'yellow');
+                echo Color::set(sprintf("%s", $inst->toString()), 'blue');
+            }
+
+            $anal = new ValueAnalyzer($inst, $state);
+            $anal->analyze();
+
+            if ($this->verbose) {
+                foreach ($anal->uses as $reg => $reg_val) {
+                    switch ($reg_val->type) {
+                    case RegVal::CONST_TYPE:
+                        echo Color::set(sprintf("\t%s: %s", $reg, $reg_val->disp), 'red');
+                        break;
+                    case RegVal::OFFSET_TYPE:
+                        echo Color::set(sprintf("\t%s: [%s @ %s] + %s", $reg, $reg_val->reg, $reg_val->def_inst_id, $reg_val->disp), 'red');
+                        break;
+                    }
+                }
+
+                echo "\n";
             }
         }
     }
@@ -376,6 +421,9 @@ class SubroutineAnalyzer
         return $return_states;
     }
 
+    /**
+     * @deprecated
+     */
     public function analyzeBlock(Block $block, $state)
     {
         echo Color::set(sprintf("\n0x%x:\n", $block->id), 'bold+underline');
@@ -481,6 +529,9 @@ class SubroutineAnalyzer
         return $state;
     }
 
+    /**
+     * TODO: refactor
+     */
     public function graph()
     {
         $subroutine = $this->subroutine;

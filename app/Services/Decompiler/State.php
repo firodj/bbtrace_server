@@ -10,11 +10,6 @@ use Exception;
 class State
 {
     /**
-     * @var int $esp_offset
-     */
-    public $esp_offset;
-
-    /**
      * FPU top pointer
      * @var int $fptop_offset
      */
@@ -41,7 +36,7 @@ class State
     public $def_order;
 
     /**
-     * @var array<int, RegDef> $stack
+     * @var array<int, RegVal> $stack
      */
     public $stack;
 
@@ -51,15 +46,22 @@ class State
      */
     public $arch;
 
+    /**
+     * @var array<string, RegVal> reg_vals
+     */
+    public $reg_vals;
+
     public function __construct(RegDefs $reg_defs)
     {
-        $this->esp_offset = 0;
         $this->fptop_offset = 0;
         $this->def_order = 0;
         $this->reg_revs = [];
         $this->reg_orders = [];
         $this->stack = [];
         $this->reg_defs = $reg_defs;
+        $this->reg_vals = [
+            'esp' => RegVal::createOffset('esp', null)
+        ];
 
         $this->arch = 32; // 32-bit
     }
@@ -116,5 +118,17 @@ class State
     public function latestDef(string $reg)
     {
         return $this->reg_defs->regDef($reg)->latestDef($this);
+    }
+
+    public function __clone()
+    {
+        foreach ($this->reg_vals as $reg => $reg_val) {
+            $this->reg_vals[$reg] = clone $reg_val;
+        }
+
+        foreach ($this->stack as $ofs => $reg_val) {
+            $this->stack[$ofs] = clone $reg_val;
+        }
+
     }
 }

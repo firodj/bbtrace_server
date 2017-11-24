@@ -15,7 +15,6 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
 {
     public $uses = [];
     public $defs = [];
-    public $esp_offset = null;
 
     public function dontKnow()
     {
@@ -71,8 +70,6 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
                 $this->defs = array_merge($this->defs, $this->regs($opnd));
             }
         }
-
-        $this->esp_offset = $this->state->esp_offset;
     }
 
     public function afterDo()
