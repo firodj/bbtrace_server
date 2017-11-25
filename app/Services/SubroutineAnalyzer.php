@@ -12,6 +12,7 @@ use App\Expression;
 use PhpAnsiColor\Color;
 use App\Services\Decompiler\State;
 use App\Services\Decompiler\RegVal;
+use App\Services\Decompiler\BlockWrap;
 
 use Exception;
 
@@ -80,7 +81,10 @@ class SubroutineAnalyzer
 
     public function eachBlock()
     {
-        $blocks = $this->subroutine->blocks->keyBy('addr');
+        $block_wraps = [];
+        foreach ($this->subroutine->blocks as $block) {
+            $block_wraps[$block->addr] = new BlockWrap($block);
+        }
 
         $traces = [
             (object)[
@@ -93,38 +97,61 @@ class SubroutineAnalyzer
         $returns = [];
 
         while ($trace_item = array_pop($traces)) {
-            $state = clone $trace_item->state;
+            if ($block_wrap = $block_wraps[$trace_item->block_addr] ?? null) {
+                $in_state = clone $trace_item->state;
 
-            if (in_array($trace_item->block_addr, $visits)) {
-                // TODO: loop detected, recrods this state
-                if ($this->verbose) {
-                    echo Color::set(sprintf("Loop addr: %d\n", $trace_item->block_addr), 'yellow');
+                $is_new_layer = null;
+                $is_skip = false;
+
+                foreach ($block_wrap->in_states as $other_layer_key => $other_state) {
+                    if ($other_layer_key == $in_state->layerKey()) $is_skip = true;
+
+                    if ($other_state->block_id == $in_state->block_id) {
+                        $is_new_layer = false;
+                    } else if ($is_new_layer !== false) {
+                        $is_new_layer = true;
+                    }
                 }
 
-                if ($block = $blocks[$trace_item->block_addr] ?? null) {
-                    yield $block => $state;
+                if ($is_new_layer === true) {
+
+                    if (! in_array($in_state->block_id, $in_state->layer)) {
+
+                        $new_state = clone $in_state;
+                        $new_state->layer[] = $new_state->block_id;
+                        $traces[] = (object)[
+                            'block_addr' => $block_wrap->block->addr,
+                            'state' => $new_state
+                        ];
+
+                        fprintf(STDERR, "%s",
+                            Color::set(sprintf("New layer: #%d [%s]\n", $block_wrap->block->addr, $new_state->layerKey()), 'yellow')
+                        );
+                    }
                 }
-                continue;
-            }
 
-            $visits[] = $trace_item->block_addr;
+                if ($is_skip) continue;
 
-            if ($block = $blocks[$trace_item->block_addr] ?? null) {
-                if ($block->instructions()->count() == 0) {
+                $block_wrap->in_states[$in_state->layerKey()] = $in_state;
+
+                $state = clone $in_state;
+                $state->block_id = $block_wrap->block->id;
+
+                if ($block_wrap->block->instructions()->count() == 0) {
                     app(BbAnalyzer::class)->disasmBlock($block);
                 }
 
-                yield $block => $state;
+                yield $block_wrap->block => $state;
 
-                if ($block->jump_mnemonic == 'call') {
+                if ($block_wrap->block->jump_mnemonic == 'call') {
                     $traces[] = (object)[
-                        'block_addr' => $block->end,
+                        'block_addr' => $block_wrap->block->end,
                         'state' => clone $state
                     ];
                 }
 
-                if ($block->jump_mnemonic != 'ret') {
-                    foreach ($block->nextFlows as $flow) {
+                if ($block_wrap->block->jump_mnemonic != 'ret') {
+                    foreach ($block_wrap->block->nextFlows as $flow) {
                         $traces[] = (object)[
                             'block_addr' => $flow->block->addr,
                             'state' => clone $state
@@ -132,8 +159,8 @@ class SubroutineAnalyzer
                     };
                 }
 
-                if ($block->jump_mnemonic == 'ret') {
-                    $returns[$block->addr] = clone $state;
+                if ($block_wrap->block->jump_mnemonic == 'ret') {
+                    $returns[$block_wrap->block->addr] = clone $state;
                 }
             } else {
                 $block = Block::where('addr', $trace_item->block_add)->first();

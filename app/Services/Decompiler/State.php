@@ -51,6 +51,15 @@ class State
      */
     public $reg_vals;
 
+    /**
+     * @var array<int> $layer;
+     */
+    public $layer;
+
+    /**
+     * @var int $block_id;
+     */
+
     public function __construct(RegDefs $reg_defs)
     {
         $this->fptop_offset = 0;
@@ -62,6 +71,8 @@ class State
         $this->reg_vals = [
             'esp' => RegVal::createOffset('esp', null)
         ];
+        $this->layer = [];
+        $this->block_id = null;
 
         $this->arch = 32; // 32-bit
     }
@@ -130,5 +141,10 @@ class State
             $this->stack[$ofs] = clone $reg_val;
         }
 
+    }
+
+    public function layerKey(): string
+    {
+        return implode(',', $this->layer);
     }
 }
