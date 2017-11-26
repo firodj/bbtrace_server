@@ -75,11 +75,14 @@ class RegDefs
             } else {
                 $domain = RegDef::regDomain($reg);
                 $r1 = Ranger::fromDomain($domain);
+                $r1->id = $r1->$reg;
+
                 $result = [$r1];
 
                 foreach(array_keys($orders) as $reg2) {
                     $domain2 = RegDef::regDomain($reg2);
                     $r2 = Ranger::fromDomain($domain2);
+                    $r2->id = $reg2;
 
                     $result = Ranger::subtracts($result, $r2, $use_reg);
 
