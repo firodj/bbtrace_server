@@ -6,16 +6,10 @@ use App\Block;
 
 class SubroutineAnalyzerTest extends TestCase
 {
-    public function testAnalyze165()
+    public function testAnalyze()
     {
-        $analyzer = new SubroutineAnalyzer(165);
-        $analyzer->analyzeDefUse();
-        $analyzer->analyzeValue();
-    }
-
-    public function testAnalyze495()
-    {
-        $analyzer = new SubroutineAnalyzer(495);
+        // 165 495 167
+        $analyzer = new SubroutineAnalyzer(167);
         $analyzer->analyzeDefUse();
         $analyzer->analyzeValue();
     }

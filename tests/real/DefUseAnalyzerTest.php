@@ -61,4 +61,27 @@ class DefUseAnalyzerTest extends TestCase
         $this->assertEquals($this->inst->id, $this->state->latestDef('esp')->inst_id);
         $this->assertEquals($this->inst->id, $this->state->latestDef('esi')->inst_id);
     }
+
+    public function testDoFldThenFpuReg()
+    {
+        $inst = Instruction::where('mne', 'fld')->firstOrFail();
+
+        fprintf(STDERR, "#%d: %s\n", $inst->id, $inst->toString());
+
+        $anal = new DefUseAnalyzer($inst, $this->state);
+
+        $this->assertEquals(0, $this->state->fptop_offset);
+        $this->assertEquals('fp0', $anal->fpuReg('st0'));
+        $this->assertEquals('fp7', $anal->fpuReg('st7'));
+
+        $anal->analyze();
+
+        $this->assertEquals(7, $this->state->fptop_offset);
+        $this->assertEquals('fp7', $anal->fpuReg('st0'));
+        $this->assertEquals('fp0', $anal->fpuReg('st1'));
+        $this->assertEquals('fp6', $anal->fpuReg('st7'));
+
+        // Non st(i) register
+        $this->assertNull($anal->fpuReg('stmj'));
+    }
 }

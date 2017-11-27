@@ -107,11 +107,13 @@ class RegDef
         'fptop' => [1017, 11,  3], // top of stack pointer
         'fpc3' => [1017, 14,  1], // condition code 3
         'fpb' => [1017, 15,  1], // fpu busy
+
+        'fpcw' => [1018,  0, 16], // x87 fpu control word
     ];
 
     public static function regDomain(string $reg)
     {
-        return self::X86_REG_DOMAIN[$reg];
+        return self::X86_REG_DOMAIN[$reg] ?? null;
     }
 
     public static function regShared(string $reg)

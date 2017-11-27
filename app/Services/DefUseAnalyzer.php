@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Services\Decompiler\State;
 use App\Instruction;
 use App\Operand;
+use PhpAnsiColor\Color;
 
 use Exception;
 
@@ -24,9 +25,6 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
     public function beforeDo()
     {
         $ins = app(BbAnalyzer::class)->disasmInstruction($this->inst);
-
-        if (in_array('fpu', $ins->detail->groups)) {
-        }
 
         $this->uses = array_merge($this->uses, array_filter(
             $ins->detail->regs_read,
@@ -81,29 +79,28 @@ class DefUseAnalyzer extends InstructionAnalyzerBase
         $this->state->defs($this->defs, $this->inst->id);
     }
 
-    public function doFld()
+    public function doFstsw()
     {
-        $this->uses[] = 'fptop';
-        $this->defs[] = 'fptop';
-
-        if ($this->inst->operands[0]->type == OPERAND::REG_TYPE) throw new Exception();
-
-        $this->state->fptop_offset = $this->state->fptop_offset > 0 ? $this->state->fptop_offset - 1 : 7;
-        $this->defs[] = sprintf("fp%d", $this->state->fptop_offset);
-
-        // push to st(0)
+        $this->uses[] = 'fpsw';
     }
 
-    public function doFstp()
+    public function doFnstsw()
     {
-        $this->uses[] = 'fptop';
-        $this->defs[] = 'fptop';
+        $this->doFstsw();
+    }
 
-        if ($this->inst->operands[0]->type == OPERAND::REG_TYPE) throw new Exception();
+    public function doFstcw()
+    {
+        $this->uses[] = 'fpcw';
+    }
 
-        // get st(0) then pop
-        $this->uses[] = sprintf("fp%d", $this->state->fptop_offset);
+    public function doFnstcw()
+    {
+        $this->doFstcw();
+    }
 
-        $this->state->fptop_offset = $this->state->fptop_offset < 7 ? $this->state->fptop_offset + 1 : 0;
+    public function doFldcw()
+    {
+        $this->defs[] = 'fpcw';
     }
 }

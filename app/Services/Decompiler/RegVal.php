@@ -58,31 +58,33 @@ class RegVal
         return true;
     }
 
-    public function opAnd(RegVal $that)
+    public static function opAnd(RegVal $dest, RegVal $src): RegVal
     {
-        if ($that->type == self::CONST_TYPE) {
-            $this->disp &= $that->disp;
-            return;
+        $dest = clone $dest;
+        if ($src->type == self::CONST_TYPE) {
+            $dest->disp &= $src->disp;
+            return $dest;
         }
 
         throw new Exception();
     }
 
-    public function opSub(RegVal $that)
+    public static function opSub(RegVal $dest, RegVal $src): RegVal
     {
-        if ($that->type == self::CONST_TYPE) {
-            $this->disp -= $that->disp;
-            return;
+        $dest = clone $dest;
+        if ($src->type == self::CONST_TYPE) {
+            $dest->disp -= $src->disp;
+            return $dest;
         }
 
         throw new Exception();
     }
 
-    public function opAdd(RegVal $that)
+    public static function opAdd(RegVal $dest, RegVal $src): RegVal
     {
-        if ($that->type == self::CONST_TYPE) {
-            $this->disp += $that->disp;
-            return;
+        if ($src->type == self::CONST_TYPE) {
+            $dest->disp += $src->disp;
+            return $dest;
         }
 
         throw new Exception();

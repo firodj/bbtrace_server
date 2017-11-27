@@ -138,7 +138,7 @@ class SubroutineAnalyzer
                 $state->block_id = $block_wrap->block->id;
 
                 if ($block_wrap->block->instructions()->count() == 0) {
-                    app(BbAnalyzer::class)->disasmBlock($block);
+                    app(BbAnalyzer::class)->disasmBlock($block_wrap->block);
                 }
 
                 yield $block_wrap->block => $state;
@@ -163,7 +163,7 @@ class SubroutineAnalyzer
                     $returns[$block_wrap->block->addr] = clone $state;
                 }
             } else {
-                $block = Block::where('addr', $trace_item->block_add)->first();
+                $block = Block::where('addr', $trace_item->block_addr)->first();
                 if ($block && $block->subroutine_id != $this->subroutine->id) {
                     $returns[$block->addr] = clone $state;
                 }
@@ -176,7 +176,10 @@ class SubroutineAnalyzer
     public function blockDefUse(Block $block, State $state)
     {
         if ($this->verbose) {
-            echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+            echo Color::set(sprintf("\n%d #%d:", $block->addr, $block->id), 'bold+underline');
+            echo Color::set(sprintf(" %X", $block->addr), 'underline');
+            echo Color::set(sprintf("\t%s", $state->layerKey()), 'cyan');
+            echo "\n";
         }
 
         // Form instruction
@@ -261,7 +264,10 @@ class SubroutineAnalyzer
     public function blockValue(Block $block, State $state)
     {
         if ($this->verbose) {
-            echo Color::set(sprintf("\n%d #%d:\n", $block->addr, $block->id), 'bold+underline');
+            echo Color::set(sprintf("\n%d #%d:", $block->addr, $block->id), 'bold+underline');
+            echo Color::set(sprintf(" %X", $block->addr), 'underline');
+            echo Color::set(sprintf("\t%s", $state->layerKey()), 'cyan');
+            echo "\n";
         }
 
         // Form instruction
@@ -277,6 +283,17 @@ class SubroutineAnalyzer
 
             if ($this->verbose) {
                 foreach ($anal->uses as $reg => $reg_val) {
+                    switch ($reg_val->type) {
+                    case RegVal::CONST_TYPE:
+                        echo Color::set(sprintf("\t%s: %s", $reg, $reg_val->disp), 'green');
+                        break;
+                    case RegVal::OFFSET_TYPE:
+                        echo Color::set(sprintf("\t%s: [%s @ %s] + %s", $reg, $reg_val->reg, $reg_val->def_inst_id, $reg_val->disp), 'green');
+                        break;
+                    }
+                }
+
+                foreach ($anal->changes as $reg => $reg_val) {
                     switch ($reg_val->type) {
                     case RegVal::CONST_TYPE:
                         echo Color::set(sprintf("\t%s: %s", $reg, $reg_val->disp), 'red');

@@ -75,7 +75,7 @@ class RegDefs
             } else {
                 $domain = RegDef::regDomain($reg);
                 $r1 = Ranger::fromDomain($domain);
-                $r1->id = $r1->$reg;
+                $r1->id = $reg;
 
                 $result = [$r1];
 

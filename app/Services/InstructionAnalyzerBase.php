@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Services\Decompiler\State;
+use App\Services\Decompiler\RegDef;
 use App\Instruction;
 use App\Operand;
 use Exception;
@@ -56,7 +57,7 @@ abstract class InstructionAnalyzerBase
     public function regs(Operand $opnd)
     {
         $regs = [];
-        if ($opnd->reg) $regs[] = $opnd->reg;
+        if ($opnd->reg && RegDef::regDomain($opnd->reg)) $regs[] = $opnd->reg;
         if ($opnd->index) $regs[] = $opnd->index;
         return $regs;
     }
@@ -64,5 +65,13 @@ abstract class InstructionAnalyzerBase
     public function opnds(int $n)
     {
         return $this->inst->operands->count() == $n;
+    }
+
+    public function fpuReg($reg)
+    {
+        if (preg_match('/^st([0-9]+)$/', $reg, $matches)) {
+            $i = (int) $matches[1];
+            return sprintf("fp%d", ($this->state->fptop_offset + $i) % 8);
+        }
     }
 }
