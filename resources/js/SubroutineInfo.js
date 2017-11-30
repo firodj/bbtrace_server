@@ -24,7 +24,14 @@ type State = {
     addr: number,
     end: number,
     name: string,
+    id: ?number
   }
+}
+
+type Drawing = {
+  ref: any,
+  panX: number,
+  panY: number
 }
 
 const emptyInfo = {
@@ -33,11 +40,12 @@ const emptyInfo = {
   addr: 0,
   end: 0,
   name: '',
+  id: null
 }
 
 const BlockContent = ({ block }) => {
   const lines = [];
-  lines.push( <tspan key="label" x="0" y="0" fontWeight="bold">{ sprintf("%d:", block.addr) }</tspan> );
+  lines.push( <tspan key="label" x="0" y="0" fontWeight="bold">{ sprintf("%d: 0x%x", block.addr, block.addr) }</tspan> );
 
   if (block.type == 'block') {
 
@@ -51,7 +59,7 @@ const BlockContent = ({ block }) => {
       </text>
     );
   } else if (block.type == 'subroutine' || block.type == 'symbol' || block.type == 'other') {
-    lines.push( <tspan key="name" x="60" y="0">{ block.name }</tspan> );
+    lines.push( <tspan key="name" x="0" y="10">{ block.name }</tspan> );
   }
 
   return (
@@ -66,7 +74,7 @@ class SubroutineInfo extends Component<Props, State> {
     info: emptyInfo
   }
 
-  drawing = {
+  drawing : Drawing = {
     ref: null,
     panX: 0,
     panY: 0
@@ -142,35 +150,43 @@ class SubroutineInfo extends Component<Props, State> {
           <svg width="100%" height="100%">
             <defs>
               <NormalArrow id="markerArrow" />
+              <NormalArrow id="markerRedArrow" style={{ fill: 'red', stroke: 'none' }} />
+              <NormalArrow id="markerGreenArrow" style={{ fill: 'green', stroke: 'none' }} />
             </defs>
-              <Graph ref={(drawing) => this.drawing.ref = drawing} >
-                { this.state.info.blocks.map(block => (
-                  <Rect key={block.id} node={block.id} style={rectStyles[block.type]}>
-                    <BlockContent block={block} />
-                  </Rect>
-                ))}
-                { this.state.info.links.map(link => (
-                  <Edge key={link.key} id={link.key} markerEnd="url(#markerArrow)"
-                    source={link.source_id} target={link.target_id}
-                  />
-                )) }
-              </Graph>
+            <Graph ref={(drawing) => this.drawing.ref = drawing} >
+              { this.state.info.blocks.map(block => (
+                <Rect key={block.id} node={block.id} style={rectStyles[block.type]}>
+                  <BlockContent block={block} />
+                </Rect>
+              ))}
+              { this.state.info.links.map(link => (
+                <Edge key={link.key} id={link.key} markerEnd={
+                    link.condition === true ? "url(#markerGreenArrow)" : (link.condition === false ? "url(#markerRedArrow)" : "url(#markerArrow)")
+                  } style={{
+                    stroke: (link.condition === true ? 'green' : (link.condition === false ? 'red' : 'black'))
+                  }}
+                  source={link.source_id} target={link.target_id}
+                />
+              )) }
+            </Graph>
           </svg>
         </DraggableCore>
       </div>
     );
   }
 
-  handleDrag = (e, data) => {
+  handleDrag = (e: SyntheticEvent<>, data: DraggableData) => {
     this.panTo(this.drawing.panX + data.deltaX,
       this.drawing.panY + data.deltaY);
   }
 
-  panTo(x, y) {
+  panTo(x: number, y: number) {
     this.drawing.panX = x > 0 ? 0 : x;
     this.drawing.panY = y > 0 ? 0 : y;
-    var el = ReactDOM.findDOMNode(this.drawing.ref);
-    el.setAttribute("transform", `translate(${this.drawing.panX}, ${this.drawing.panY})`);
+    const el = ReactDOM.findDOMNode(this.drawing.ref);
+    if (el instanceof Element) {
+      el.setAttribute("transform", `translate(${this.drawing.panX}, ${this.drawing.panY})`);
+    }
   }
 
   fetchSubroutine(id: number)

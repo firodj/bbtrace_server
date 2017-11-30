@@ -40,7 +40,7 @@ class DagrePage extends Component<Props, State> {
     ]
   }
 
-  handleClick = (e) => {
+  handleClick = (e: SyntheticEvent<>) => {
     this.setState(prevState => {
       const nextState = { ...prevState };
       if (prevState.nodes.length < 3) {

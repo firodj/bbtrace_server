@@ -310,6 +310,149 @@ class SubroutineAnalyzer
     }
 
     /**
+     * TODO: refactor
+     */
+    public function graph()
+    {
+        $subroutine = $this->subroutine;
+
+        $result = $subroutine->toArray();
+        $links = [];
+        $aliens = [];
+
+        $result['blocks'] = $subroutine->blocks->map(function ($block) use (&$aliens, &$links) {
+            // mark this block is not alien
+
+            $a = make_key($block);
+            $aliens[ $a ] = false;
+
+            // Form flow
+            foreach($block->nextFlows as $flow) {
+                if ($block->jump_mnemonic == 'ret') {
+                    continue;
+                }
+
+                $b = make_key($flow->block);
+                if ($block->jump_mnemonic == 'call') {
+                    $is_calling = true;
+                    if ($flow->block->addr == $block->end) {
+                        $is_calling = false;
+                    } else {
+                        $b .= '_'.count($aliens);
+                    }
+                }
+
+                $key = sprintf("%s-%s", $a, $b);
+
+                $condition = null;
+                if (is_string($block->jump_mnemonic) && $block->jump_mnemonic[0] == 'j' && $block->jump_mnemonic != 'jmp') {
+                    $condition = $block->end != $flow->block->addr;
+                }
+
+                $links[$key] = [
+                    'source_id' => $a,
+                    'target_id' => $b,
+                    'key' => $key,
+                    'condition' => $condition,
+                ];
+
+                if (! array_key_exists( $b, $aliens)) {
+                    $aliens[ $b ] = true;
+                }
+
+                if ($block->jump_mnemonic == 'call') {
+                    $succ_block = Block::where('addr', $block->end)->first();
+                    if ($succ_block && $is_calling) {
+                        $c = make_key($succ_block);
+
+                        $key = sprintf("%s-%s", $b, $c);
+                        $links[$key] = [
+                            'source_id' => $b,
+                            'target_id' => $c,
+                            'key' => $key,
+                            'condition' => null,
+                        ];
+                        if (! array_key_exists($c, $aliens)) {
+                            $aliens[ $c ] = true;
+                        }
+                    }
+                }
+            }
+
+            // If no codes disasm
+            if (! $block->codes ) {
+                $codes = [];
+                if ($block->instructions->count() == 0) {
+                    app(BbAnalyzer::class)->disasmBlock($block);
+                }
+                $codes = $block->instructions()->get()->map(function ($inst)
+                {
+                    return ['code' => $inst->toString()];
+                });
+                $block->codes = $codes;
+            }
+
+            $result = $block->toArray();
+
+            $result['type'] = 'block';
+            $result['id'] = $a;
+
+            return $result;
+        });
+
+        $result['links'] = array_values($links);
+
+        foreach($aliens as $id => $value) {
+            if (! $value) continue;
+
+            $alien = [
+                'id' => $id,
+                'type' => 'unknown'
+            ];
+
+            $keyz = explode('_', $id);
+
+            if ($keyz[0] == 'subroutines') {
+                $subroutine = Subroutine::find($keyz[1]);
+                if ($subroutine) {
+                    $alien = [
+                        'id' => $id,
+                        'addr' => $subroutine->addr,
+                        'type' => 'subroutine',
+                        'name' => $subroutine->name,
+                    ];
+                }
+            }
+            else if ($keyz[0] == 'symbols') {
+                $symbol = Symbol::with('module')->find($keyz[1]);
+                if ($symbol) {
+                    $alien = [
+                        'id' => $id,
+                        'addr' => $symbol->addr,
+                        'type' => 'symbol',
+                        'name' => $symbol->getDisplayName()
+                    ];
+                }
+            }
+            else if ($keyz[0] == 'blocks') {
+                $block = Block::with('subroutine')->find($keyz[1]);
+                if ($block) {
+                    $alien = [
+                        'id' => $id,
+                        'addr' => $block->addr,
+                        'type' => 'other',
+                        'name' => $block->subroutine->name
+                    ];
+                }
+            }
+
+            $result['blocks'][] = $alien;
+        }
+
+        return $result;
+    }
+
+    /**
      * Generate operand's expression for all instructions
      * @deprecated
      */
@@ -572,137 +715,4 @@ class SubroutineAnalyzer
 
         return $state;
     }
-
-    /**
-     * TODO: refactor
-     */
-    public function graph()
-    {
-        $subroutine = $this->subroutine;
-
-        $result = $subroutine->toArray();
-        $links = [];
-        $aliens = [];
-
-        $result['blocks'] = $subroutine->blocks->map(function ($block) use (&$aliens, &$links) {
-            // mark this block is not alien
-
-            $a = make_key($block);
-            $aliens[ $a ] = false;
-
-            // Form flow
-            foreach($block->nextFlows as $flow) {
-                if ($block->jump_mnemonic == 'ret') {
-                    continue;
-                }
-
-                $b = make_key($flow->block);
-                if ($block->jump_mnemonic == 'call') {
-                    $b .= '_'.count($aliens);
-                }
-
-                $key = sprintf("%s-%s", $a, $b);
-
-                $links[$key] = [
-                    'source_id' => $a,
-                    'target_id' => $b,
-                    'key' => $key,
-                ];
-
-                if (! array_key_exists( $b, $aliens)) {
-                    $aliens[ $b ] = true;
-                }
-
-                if ($block->jump_mnemonic == 'call') {
-                    $succ_block = Block::where('addr', $block->end)->first();
-                    if ($succ_block) {
-                        $c = make_key($succ_block);
-
-                        $key = sprintf("%s-%s", $b, $c);
-                        $links[$key] = [
-                            'source_id' => $b,
-                            'target_id' => $c,
-                            'key' => $key,
-                        ];
-                        if (! array_key_exists($c, $aliens)) {
-                            $aliens[ $c ] = true;
-                        }
-                    }
-                }
-            }
-
-            // If no codes disasm
-            if (! $block->codes ) {
-                $codes = [];
-                if ($block->instructions->count() == 0) {
-                    app(BbAnalyzer::class)->disasmBlock($block);
-                }
-                $codes = $block->instructions()->get()->map(function ($inst)
-                {
-                    return ['code' => $inst->toString()];
-                });
-                $block->codes = $codes;
-            }
-
-            $result = $block->toArray();
-
-            $result['type'] = 'block';
-            $result['id'] = $a;
-
-            return $result;
-        });
-
-        $result['links'] = array_values($links);
-
-        foreach($aliens as $id => $value) {
-            if (! $value) continue;
-
-            $alien = [
-                'id' => $id,
-                'type' => 'unknown'
-            ];
-
-            $keyz = explode('_', $id);
-
-            if ($keyz[0] == 'subroutines') {
-                $subroutine = Subroutine::find($keyz[1]);
-                if ($subroutine) {
-                    $alien = [
-                        'id' => $id,
-                        'addr' => $subroutine->addr,
-                        'type' => 'subroutine',
-                        'name' => $subroutine->name,
-                    ];
-                }
-            }
-            else if ($keyz[0] == 'symbols') {
-                $symbol = Symbol::with('module')->find($keyz[1]);
-                if ($symbol) {
-                    $alien = [
-                        'id' => $id,
-                        'addr' => $symbol->addr,
-                        'type' => 'symbol',
-                        'name' => $symbol->getDisplayName()
-                    ];
-                }
-            }
-            else if ($keyz[0] == 'blocks') {
-                $block = Block::with('subroutine')->find($keyz[1]);
-                if ($block) {
-                    $alien = [
-                        'id' => $id,
-                        'addr' => $block->addr,
-                        'type' => 'other',
-                        'name' => $block->subroutine->name
-                    ];
-                }
-            }
-
-            $result['blocks'][] = $alien;
-        }
-
-        return $result;
-    }
-
-
 }

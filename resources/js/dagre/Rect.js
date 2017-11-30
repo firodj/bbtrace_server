@@ -3,6 +3,7 @@
 import * as React from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
+import type { BBoxType } from '../exports';
 
 type Props = {
   node: string,
@@ -17,11 +18,13 @@ type Props = {
 const LABEL_MARGIN = 10;
 
 class Rect extends React.Component<Props> {
-  labelRef: ?SVGGElement = null;
+  labelRef: ?Element = null;
 
   static defaultProps = {
     style: {},
   }
+
+  labelBBox: ?BBoxType;
 
   render() {
     var {

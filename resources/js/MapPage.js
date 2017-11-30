@@ -89,6 +89,7 @@ class MapPage extends Component<Props> {
           <svg width="100%" height="100%">
               <defs>
                 <NormalArrow id="markerArrow" />
+                <NormalArrow id="markerRedArrow" style={{ fill: 'red', stroke: 'none' }} />
                 <linearGradient id="gradientGreen" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="green"/>
                   <stop offset="100%" stopColor="black"/>
@@ -115,7 +116,9 @@ class MapPage extends Component<Props> {
                   </Rect>
                 ))}
                 { this.state.links.map(link => (
-                  <Edge key={link.id} id={link.id} markerEnd="url(#markerArrow)"
+                  <Edge key={link.id} id={link.id} markerEnd={
+                      link.xref == 1 ? "url(#markerArrow)" : "url(#markerRedArrow)"
+                    }
                     source={link.source_id} target={link.target_id}
                     style={{
                       stroke: (link.xref == 1 ? 'black' : 'red')

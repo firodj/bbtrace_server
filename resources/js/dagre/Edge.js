@@ -24,7 +24,7 @@ class Edge extends React.Component<Props> {
     labelpos: "r",
   }
 
-  labelRef: ?SVGGElement = null;
+  labelRef: ?Element = null;
 
   render() {
     var {

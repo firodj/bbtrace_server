@@ -19,7 +19,7 @@ type RankAlignType = 'UL' | 'UR' | 'DL' | 'DR';
 type Props = {
   children?: React.ChildrenArray<React.Element<any>>,
   rankdir: RankDirType,
-  rankalign: rankAlignType,
+  rankalign: RankAlignType,
 }
 
 class Graph extends React.Component<Props> {
@@ -33,7 +33,7 @@ class Graph extends React.Component<Props> {
   gLast = {
     serialize: [], nodes: {}, edges: {}, graph: {}
   }
-  graph: ?Object = null;
+  graph: ?any = null;
 
   getChildContext() {
     return {
@@ -43,7 +43,7 @@ class Graph extends React.Component<Props> {
 
   createGraph() {
     // Create a new directed graph
-    const graph = new graphlib.Graph();
+    const graph: any = new graphlib.Graph();
 
     // Set an object for the graph label
     graph.setGraph({
@@ -65,7 +65,7 @@ class Graph extends React.Component<Props> {
   }
 
   relayout() {
-    const graph = this.graph;
+    const graph: any = this.graph;
 
     if (graph.dirty) {
       layout(graph);
@@ -91,7 +91,7 @@ class Graph extends React.Component<Props> {
     this.relayout();
   }
 
-  componentDidUpdate(prevProps: Props, prevState: State) {
+  componentDidUpdate(prevProps: Props) {
     this.relayout();
   }
 }
