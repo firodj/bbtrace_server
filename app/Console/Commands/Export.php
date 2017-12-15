@@ -9,15 +9,24 @@ use App\Block;
 class Export extends Command
 {
     protected $signature = 'export
-                            {--flow}';
+                            {--flow}
+                            {--color}';
     protected $description = 'Export IDC';
 
     private $anal;
 
     public function handle()
     {
-        $this->anal = app(BbAnalyzer::class);
+        if ($this->option('flow')) {
+            $this->handleFlow();
+        }
+        if ($this->option('color')) {
+            $this->handleColor();
+        }
+    }
 
+    public function handleFlow()
+    {
         echo <<<EOS
 #include <idc.idc>
 
@@ -72,9 +81,43 @@ EOS;
             });
         });
 
+        echo <<<EOS
+}
+EOS;
+    }
+
+    public function handleColor()
+    {
+            echo <<<EOS
+#include <idc.idc>
+
+static color_instr(ea, maxea, col)
+{
+    auto x;
+    msg("\\n*** Coloring instructions from " + atoa(ea) + "\\n");
+    for ( x=ea; x != BADADDR; x=next_head(x,maxea) ) {
+        set_color(x, CIC_ITEM, col);
+    }
+}
+
+static main()
+{
+
+EOS;
+
+            Block::get()->each(function($block) {
+                $ea = dechex($block->addr);
+                $maxea = dechex($block->end);
+
+                echo <<<EOS
+    color_instr(0x$ea, 0x$maxea, 0xccffff);
+
+EOS;
+            });
 
         echo <<<EOS
 }
 EOS;
+
     }
 }
