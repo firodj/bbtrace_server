@@ -6,9 +6,10 @@ Edit your `.env` files.
 
 ```
 $ cp .env.example .env
-$ npm install
-$ node_modules/.bin/webpack -d -w
+$ composer install
 $ php artisan migrate
+$ npm install
+$ node_modules/.bin/webpack -d
 $ php -S localhost:3000 -t public
 ```
 
